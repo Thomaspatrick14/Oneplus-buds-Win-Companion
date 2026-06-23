@@ -4,3 +4,4 @@ pub_light/
 out/
 *.user
 .vs/
+out-fx/
