@@ -8,10 +8,11 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <AssemblyName>OnePlusBuds4</AssemblyName>
+    <AssemblyName>OnePlusBuds</AssemblyName>
+    <AssemblyTitle>OnePlus Buds</AssemblyTitle>
     <RootNamespace>OnePlusBuds4</RootNamespace>
-    <Title>OnePlus Buds Windows Companion</Title>
-    <Product>OnePlus Buds Windows Companion</Product>
+    <Title>OnePlus Buds</Title>
+    <Product>OnePlus Buds</Product>
     <Description>Windows companion controller for OnePlus Buds (Buds 4 &amp; Buds Pro 3)</Description>
     <Version>1.0.0</Version>
     <Authors>Thomaspatrick14, nic0manz</Authors>

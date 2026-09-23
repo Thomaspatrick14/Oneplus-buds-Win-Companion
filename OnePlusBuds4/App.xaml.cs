@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 
@@ -10,9 +11,13 @@ public partial class App : System.Windows.Application
 {
     private static Mutex? _mutex;
 
+    [DllImport("shell32.dll", SetLastError = true)]
+    private static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+
     protected override void OnStartup(StartupEventArgs e)
     {
-        _mutex = new Mutex(true, "OnePlusBuds4_SingleInstance", out bool isNew);
+        try { SetCurrentProcessExplicitAppUserModelID("OnePlus.OnePlusBuds"); } catch { }
+        _mutex = new Mutex(true, "OnePlusBuds_SingleInstance", out bool isNew);
         if (!isNew)
         {
             System.Windows.MessageBox.Show("OnePlus Buds is already running (check the system tray).",

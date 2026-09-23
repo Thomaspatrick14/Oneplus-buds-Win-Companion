@@ -1,7 +1,4 @@
 {
-    "dotnet.dotnetPath": "C:\\Users\\up650\\.dotnet",
-    "dotnetAcquisitionExtension.allowInvalidPaths": true,
-    "dotnetAcquisitionExtension.sharedExistingDotnetPath": "C:\\Users\\up650\\.dotnet\\dotnet.exe",
     "dotnetAcquisitionExtension.existingDotnetPath": [
         {
             "extensionId": "ms-dotnettools.csharp",
@@ -13,3 +10,4 @@
         }
     ]
 }
+
