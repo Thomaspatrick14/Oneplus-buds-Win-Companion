@@ -411,8 +411,8 @@ public partial class MainWindow : Window
         var eqBtn = preset.Value switch
         {
             0x00 => EqBalancedBtn,
-            0x01 => EqBassBtn,
-            0x02 => EqVocalsBtn,
+            0x01 => EqVocalsBtn,
+            0x02 => EqBassBtn,
             _    => null
         };
         if (eqBtn != null) Select(EqGroup, eqBtn);
@@ -575,8 +575,8 @@ public partial class MainWindow : Window
 
     // ── EQ ──
     private void OnEqBalanced(object s, RoutedEventArgs e) { Select(EqGroup, EqBalancedBtn); Do(BudsConnection.Eq(0x00), "EQ Balanced"); }
-    private void OnEqVocals(object s, RoutedEventArgs e) { Select(EqGroup, EqVocalsBtn); Do(BudsConnection.Eq(0x02), "EQ Clear Vocals"); }
-    private void OnEqBass(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtn); Do(BudsConnection.Eq(0x01), "EQ Bass"); }
+    private void OnEqVocals(object s, RoutedEventArgs e) { Select(EqGroup, EqVocalsBtn); Do(BudsConnection.Eq(0x01), "EQ Clear Vocals"); }
+    private void OnEqBass(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtn); Do(BudsConnection.Eq(0x02), "EQ Bass"); }
 
     // ── Custom EQ (6 bands) ──
     private readonly System.Windows.Controls.Slider[] _bands = new System.Windows.Controls.Slider[6];

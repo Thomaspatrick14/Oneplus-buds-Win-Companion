@@ -112,7 +112,7 @@ AA <len> 00 00 <cmd_lo> <cmd_hi> <seq> <plen_lo> <plen_hi> [payload]
 |---|---|---|---|
 | **Earbud Gestures** | `08 01` | `08 04` | 18 gesture mappings across Left & Right; sets `[side] [cat] [gid] [aid]` |
 | **ANC Mode & Level** | `0C 01` | `0C 04` | Mode (ANC / Adaptive / Trans / Off) & Level (High / Mid / Low / Auto); pushed as `04 02` |
-| **Sound Master EQ** | `0F 01` | `0F 04` | Balanced (`0x00`), Bass (`0x01`), Clear Vocals (`0x02`) |
+| **Sound Master EQ** | `0F 01` | `0F 04` | Balanced (`0x00`), Clear Vocals (`0x01`), Bass (`0x02`) |
 | **BassWave™ Enable** | `0D 01` | `0D 04` | Feature Switch ID `0x1D` (Fn 269) |
 | **BassWave™ Value** | `24 01` | `24 04` | Signed range (−5 to +5) |
 | **Custom EQ Profiles** | `22 01` | `22 04` | Read, create, select, and delete 6-band user profiles |
