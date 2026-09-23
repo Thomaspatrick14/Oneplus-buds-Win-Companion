@@ -30,11 +30,16 @@ public partial class PacketLogWindow : Window
         Hide();
     }
 
+    public bool AllowClose { get; set; }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        // Hide instead of destroying so logging continues uninterrupted
-        e.Cancel = true;
-        Hide();
+        if (!AllowClose)
+        {
+            // Hide instead of destroying so logging continues uninterrupted
+            e.Cancel = true;
+            Hide();
+        }
     }
 
     public void LogPacket(byte[] data, bool incoming)

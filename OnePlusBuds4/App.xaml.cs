@@ -22,5 +22,12 @@ public partial class App : System.Windows.Application
         }
         base.OnStartup(e);
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try { _mutex?.ReleaseMutex(); } catch { }
+        _mutex?.Dispose();
+        base.OnExit(e);
+    }
 }
 

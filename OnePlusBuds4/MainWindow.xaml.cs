@@ -23,7 +23,16 @@ public partial class MainWindow : Window
     }
 
     private void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void OnClose(object sender, RoutedEventArgs e) => Close();
+    private void OnClose(object sender, RoutedEventArgs e)
+    {
+        _pollTimer?.Stop();
+        _buds?.Close();
+        _tray?.Dispose();
+        _tray = null;
+        _logWindow.AllowClose = true;
+        _logWindow.Close();
+        Environment.Exit(0);
+    }
     private void OnAbout(object sender, RoutedEventArgs e) => new AboutWindow { Owner = this }.ShowDialog();
     private void OnOpenLog(object sender, RoutedEventArgs e)
     {
@@ -66,7 +75,16 @@ public partial class MainWindow : Window
         SetupTray();
         Loaded += async (_, _) => { LoadDevices(); BuildBands(); PopulateSlotCombo(); InitGestureCombos(); SetControlsEnabled(false); await AutoConnectAsync(); };
         StateChanged += OnStateChanged;
-        Closed += (_, _) => { _pollTimer?.Stop(); _buds?.Close(); _tray?.Dispose(); _logWindow.Close(); };
+        Closed += (_, _) =>
+        {
+            _pollTimer?.Stop();
+            _buds?.Close();
+            _tray?.Dispose();
+            _tray = null;
+            _logWindow.AllowClose = true;
+            _logWindow.Close();
+            Environment.Exit(0);
+        };
     }
 
     // ── Device list ──
@@ -697,7 +715,7 @@ public partial class MainWindow : Window
         _tray.DoubleClick += (_, _) => ShowFromTray();
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Show", null, (_, _) => ShowFromTray());
-        menu.Items.Add("Exit", null, (_, _) => { _tray!.Visible = false; System.Windows.Application.Current.Shutdown(); });
+        menu.Items.Add("Exit", null, (_, _) => { _tray!.Visible = false; _tray?.Dispose(); Environment.Exit(0); });
         _tray.ContextMenuStrip = menu;
     }
 
