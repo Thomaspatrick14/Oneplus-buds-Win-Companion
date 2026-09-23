@@ -57,6 +57,7 @@ public partial class MainWindow : Window
     private BudsConnection? _buds;
     private bool _ready;
     private bool _connecting;
+    private bool _isPro3Mode;
     private bool _suppressBassEvents; // true while a poll is syncing the BassWave UI, to avoid echoing commands back
     private bool? _bothInCase;        // both earbuds in the case? null = unknown yet (locks ANC when true)
     private bool? _anyInEar;          // at least one earbud in an ear? drives the "Worn" label
@@ -105,16 +106,58 @@ public partial class MainWindow : Window
         if (preferred != null)
         {
             DeviceCombo.SelectedItem = preferred;
+            UpdateProfileForDevice(preferred.Name);
             SetStatus("Select a device and press Connect");
         }
         else
         {
             // No auto-detected device: user can paste a MAC if needed
             DeviceCombo.Text = "";
+            UpdateProfileForDevice(null);
             SetStatus(devices.Count > 0
                 ? "Pick a device or type a MAC, then Connect"
                 : "No paired OnePlus Buds found — pair in Windows Bluetooth settings or paste MAC");
         }
+    }
+
+    private void OnDeviceSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        string? name = null;
+        if (DeviceCombo.SelectedItem is DeviceItem item)
+        {
+            name = item.Name;
+        }
+        else if (!string.IsNullOrWhiteSpace(DeviceCombo.Text))
+        {
+            name = DeviceCombo.Text;
+        }
+        UpdateProfileForDevice(name);
+    }
+
+    private void UpdateProfileForDevice(string? name)
+    {
+        bool isPro3 = !string.IsNullOrEmpty(name) && name.Contains("3 Pro", StringComparison.OrdinalIgnoreCase);
+        ApplyDeviceProfile(isPro3);
+    }
+
+    private void ApplyDeviceProfile(bool isPro3)
+    {
+        _isPro3Mode = isPro3;
+
+        if (TitleText != null) TitleText.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
+        Title = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
+
+        if (NoisePanelBuds4 != null) NoisePanelBuds4.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
+        if (NoisePanelPro3 != null) NoisePanelPro3.Visibility = isPro3 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (EarbudControlsCard != null) EarbudControlsCard.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
+
+        if (EqPanelBuds4 != null) EqPanelBuds4.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
+        if (EqPanelPro3 != null) EqPanelPro3.Visibility = isPro3 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_tray != null) _tray.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
+
+        UpdateAncEnabled();
     }
 
     // Returns the MAC from the selected item, or the typed text.
@@ -140,6 +183,20 @@ public partial class MainWindow : Window
     {
         if (mac == null) { SetStatus("Pick a device or type a MAC first"); return; }
         if (_connecting) return;
+
+        string? devName = (DeviceCombo.SelectedItem as DeviceItem)?.Name ?? DeviceCombo.Text;
+        if (string.IsNullOrWhiteSpace(devName))
+        {
+            foreach (var (pName, pMac) in BudsConnection.PairedDevices())
+            {
+                if (pMac.Equals(mac, StringComparison.OrdinalIgnoreCase))
+                {
+                    devName = pName;
+                    break;
+                }
+            }
+        }
+        UpdateProfileForDevice(devName);
         _connecting = true;
         _ready = false;
         _bothInCase = null; _anyInEar = null; // unknown until the earbuds report it
@@ -189,9 +246,18 @@ public partial class MainWindow : Window
 
     private void SetControlsEnabled(bool enabled)
     {
+        // Buds 4 EQ
         EqBalancedBtn.IsEnabled = enabled;
         EqVocalsBtn.IsEnabled = enabled;
         EqBassBtn.IsEnabled = enabled;
+
+        // Buds Pro 3 EQ
+        EqBalancedBtnPro3.IsEnabled = enabled;
+        EqBoldBtnPro3.IsEnabled = enabled;
+        EqSerenadeBtnPro3.IsEnabled = enabled;
+        EqBassBtnPro3.IsEnabled = enabled;
+        EqDynBtnPro3.IsEnabled = enabled;
+
         BassToggle.IsEnabled = enabled;
         ApplyEqBtn.IsEnabled = enabled;
         SlotCombo.IsEnabled = enabled;
@@ -213,14 +279,24 @@ public partial class MainWindow : Window
     private void UpdateAncEnabled()
     {
         bool en = _ready && _anyInEar != false;
-        AncBtn.IsEnabled = en;
-        AdaptiveBtn.IsEnabled = en;
-        TransBtn.IsEnabled = en;
-        OffBtn.IsEnabled = en;
-        HighBtn.IsEnabled = en;
-        MidBtn.IsEnabled = en;
-        LowBtn.IsEnabled = en;
-        AutoBtn.IsEnabled = en;
+        // Buds 4
+        if (AncBtn != null) AncBtn.IsEnabled = en;
+        if (AdaptiveBtn != null) AdaptiveBtn.IsEnabled = en;
+        if (TransBtn != null) TransBtn.IsEnabled = en;
+        if (OffBtn != null) OffBtn.IsEnabled = en;
+        if (HighBtn != null) HighBtn.IsEnabled = en;
+        if (MidBtn != null) MidBtn.IsEnabled = en;
+        if (LowBtn != null) LowBtn.IsEnabled = en;
+        if (AutoBtn != null) AutoBtn.IsEnabled = en;
+
+        // Buds Pro 3
+        if (AncBtnPro3 != null) AncBtnPro3.IsEnabled = en;
+        if (TransBtnPro3 != null) TransBtnPro3.IsEnabled = en;
+        if (OffBtnPro3 != null) OffBtnPro3.IsEnabled = en;
+        if (HighBtnPro3 != null) HighBtnPro3.IsEnabled = en;
+        if (MidBtnPro3 != null) MidBtnPro3.IsEnabled = en;
+        if (LowBtnPro3 != null) LowBtnPro3.IsEnabled = en;
+        if (AutoBtnPro3 != null) AutoBtnPro3.IsEnabled = en;
     }
 
     // Reacts to the earbuds' wear status. Putting an earbud in / out of an ear
@@ -347,17 +423,17 @@ public partial class MainWindow : Window
         _ancAuto = auto;
         if (off)
         {
-            Select(NoiseGroup, OffBtn);
-            AncLevelsGrid.Visibility = Visibility.Collapsed;
+            Select(NoiseGroup, ActiveOffBtn);
+            if (!_isPro3Mode) AncLevelsGrid.Visibility = Visibility.Collapsed;
             foreach (var b in LevelGroup) b.Tag = null;
         }
         else if (trans)
         {
-            Select(NoiseGroup, TransBtn);
-            AncLevelsGrid.Visibility = Visibility.Collapsed;
+            Select(NoiseGroup, _isPro3Mode ? TransBtnPro3 : TransBtn);
+            if (!_isPro3Mode) AncLevelsGrid.Visibility = Visibility.Collapsed;
             foreach (var b in LevelGroup) b.Tag = null;
         }
-        else if (adaptive)
+        else if (adaptive && !_isPro3Mode)
         {
             Select(NoiseGroup, AdaptiveBtn);
             AncLevelsGrid.Visibility = Visibility.Collapsed;
@@ -365,14 +441,14 @@ public partial class MainWindow : Window
         }
         else if (anc)
         {
-            Select(NoiseGroup, AncBtn);
-            AncLevelsGrid.Visibility = Visibility.Visible;
+            Select(NoiseGroup, _isPro3Mode ? AncBtnPro3 : AncBtn);
+            if (!_isPro3Mode) AncLevelsGrid.Visibility = Visibility.Visible;
             var levelBtn = level switch
             {
-                "High"     => HighBtn,
-                "Moderate" => MidBtn,
-                "Low"      => LowBtn,
-                "Auto"     => AutoBtn,
+                "High"     => _isPro3Mode ? HighBtnPro3 : HighBtn,
+                "Moderate" => _isPro3Mode ? MidBtnPro3 : MidBtn,
+                "Low"      => _isPro3Mode ? LowBtnPro3 : LowBtn,
+                "Auto"     => _isPro3Mode ? AutoBtnPro3 : AutoBtn,
                 _          => null
             };
             if (levelBtn != null) Select(LevelGroup, levelBtn);
@@ -385,9 +461,16 @@ public partial class MainWindow : Window
     private void ApplyAutoLevel(string level)
     {
         if (!_ancAuto) return;
-        var btn = level switch { "High" => HighBtn, "Moderate" => MidBtn, "Low" => LowBtn, _ => null };
+        var autoBtn = _isPro3Mode ? AutoBtnPro3 : AutoBtn;
+        var btn = level switch
+        {
+            "High"     => _isPro3Mode ? HighBtnPro3 : HighBtn,
+            "Moderate" => _isPro3Mode ? MidBtnPro3 : MidBtn,
+            "Low"      => _isPro3Mode ? LowBtnPro3 : LowBtn,
+            _          => null
+        };
         foreach (var b in LevelGroup)
-            if (b != AutoBtn) b.Tag = (b == btn) ? "sub" : null;
+            if (b != autoBtn) b.Tag = (b == btn) ? "sub" : null;
     }
 
     // While the earbuds aren't worn ANC is auto-off; show the Off pill in the
@@ -398,8 +481,8 @@ public partial class MainWindow : Window
         {
             foreach (var b in NoiseGroup) b.Tag = null;
             foreach (var b in LevelGroup) b.Tag = null;
-            AncLevelsGrid.Visibility = Visibility.Collapsed;
-            OffBtn.Tag = "auto";
+            if (!_isPro3Mode) AncLevelsGrid.Visibility = Visibility.Collapsed;
+            ActiveOffBtn.Tag = "auto";
         }
     }
 
@@ -408,13 +491,29 @@ public partial class MainWindow : Window
     {
         var preset = BudsConnection.DecodeEqPreset(d);
         if (!preset.HasValue) return;
-        var eqBtn = preset.Value switch
+        System.Windows.Controls.Button? eqBtn;
+        if (_isPro3Mode)
         {
-            0x00 => EqBalancedBtn,
-            0x01 => EqVocalsBtn,
-            0x02 => EqBassBtn,
-            _    => null
-        };
+            eqBtn = preset.Value switch
+            {
+                0x00 => EqBalancedBtnPro3,
+                0x01 => EqBoldBtnPro3,
+                0x02 => EqSerenadeBtnPro3,
+                0x03 => EqBassBtnPro3,
+                0x07 => EqDynBtnPro3,
+                _    => null
+            };
+        }
+        else
+        {
+            eqBtn = preset.Value switch
+            {
+                0x00 => EqBalancedBtn,
+                0x01 => EqVocalsBtn,
+                0x02 => EqBassBtn,
+                _    => null
+            };
+        }
         if (eqBtn != null) Select(EqGroup, eqBtn);
     }
 
@@ -501,16 +600,26 @@ public partial class MainWindow : Window
     private void SetStatus(string s) => StatusText.Text = s;
 
     // ── Selection highlight ──
-    private System.Windows.Controls.Button[] NoiseGroup => new[] { AncBtn, AdaptiveBtn, TransBtn, OffBtn };
-    private System.Windows.Controls.Button[] LevelGroup => new[] { HighBtn, MidBtn, LowBtn, AutoBtn };
-    private System.Windows.Controls.Button[] EqGroup => new[] { EqBalancedBtn, EqVocalsBtn, EqBassBtn };
+    private System.Windows.Controls.Button[] NoiseGroup => _isPro3Mode
+        ? new[] { AncBtnPro3, TransBtnPro3, OffBtnPro3 }
+        : new[] { AncBtn, AdaptiveBtn, TransBtn, OffBtn };
+
+    private System.Windows.Controls.Button[] LevelGroup => _isPro3Mode
+        ? new[] { HighBtnPro3, MidBtnPro3, LowBtnPro3, AutoBtnPro3 }
+        : new[] { HighBtn, MidBtn, LowBtn, AutoBtn };
+
+    private System.Windows.Controls.Button[] EqGroup => _isPro3Mode
+        ? new[] { EqBalancedBtnPro3, EqBoldBtnPro3, EqSerenadeBtnPro3, EqBassBtnPro3, EqDynBtnPro3 }
+        : new[] { EqBalancedBtn, EqVocalsBtn, EqBassBtn };
+
+    private System.Windows.Controls.Button ActiveOffBtn => _isPro3Mode ? OffBtnPro3 : OffBtn;
 
     private static void Select(System.Windows.Controls.Button[] group, System.Windows.Controls.Button active)
     {
         foreach (var b in group) b.Tag = (b == active) ? "sel" : null;
     }
 
-    // ── Noise Control Modes & Levels ──
+    // ── Noise Control Modes & Levels (Buds 4) ──
     private void OnAnc(object s, RoutedEventArgs e)
     {
         Select(NoiseGroup, AncBtn);
@@ -573,10 +682,26 @@ public partial class MainWindow : Window
         Do(BudsConnection.AncLevel(0x80), "ANC Auto");
     }
 
-    // ── EQ ──
+    // ── Noise Control (Buds Pro 3) ──
+    private void OnAncPro3(object s, RoutedEventArgs e) { Select(NoiseGroup, AncBtnPro3); Do(BudsConnection.Anc(0x02), "ANC on"); }
+    private void OnTransPro3(object s, RoutedEventArgs e) { Select(NoiseGroup, TransBtnPro3); foreach (var b in LevelGroup) b.Tag = null; Do(BudsConnection.Anc(0x04), "Transparency"); }
+    private void OnOffPro3(object s, RoutedEventArgs e) { Select(NoiseGroup, OffBtnPro3); foreach (var b in LevelGroup) b.Tag = null; Do(BudsConnection.Anc(0x01), "ANC off"); }
+    private void OnHighPro3(object s, RoutedEventArgs e) { Select(LevelGroup, HighBtnPro3); Select(NoiseGroup, AncBtnPro3); Do(BudsConnection.AncLevel(0x10), "ANC High"); }
+    private void OnMidPro3(object s, RoutedEventArgs e) { Select(LevelGroup, MidBtnPro3); Select(NoiseGroup, AncBtnPro3); Do(BudsConnection.AncLevel(0x20), "ANC Moderate"); }
+    private void OnLowPro3(object s, RoutedEventArgs e) { Select(LevelGroup, LowBtnPro3); Select(NoiseGroup, AncBtnPro3); Do(BudsConnection.AncLevel(0x40), "ANC Low"); }
+    private void OnAutoPro3(object s, RoutedEventArgs e) { Select(LevelGroup, AutoBtnPro3); Select(NoiseGroup, AncBtnPro3); Do(BudsConnection.AncLevel(0x80), "ANC Auto"); }
+
+    // ── EQ (Buds 4) ──
     private void OnEqBalanced(object s, RoutedEventArgs e) { Select(EqGroup, EqBalancedBtn); Do(BudsConnection.Eq(0x00), "EQ Balanced"); }
     private void OnEqVocals(object s, RoutedEventArgs e) { Select(EqGroup, EqVocalsBtn); Do(BudsConnection.Eq(0x01), "EQ Clear Vocals"); }
     private void OnEqBass(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtn); Do(BudsConnection.Eq(0x02), "EQ Bass"); }
+
+    // ── EQ (Buds Pro 3) ──
+    private void OnEqBalancedPro3(object s, RoutedEventArgs e) { Select(EqGroup, EqBalancedBtnPro3); Do(BudsConnection.Eq(0x00), "EQ Balanced"); }
+    private void OnEqBoldPro3(object s, RoutedEventArgs e) { Select(EqGroup, EqBoldBtnPro3); Do(BudsConnection.Eq(0x01), "EQ Bold"); }
+    private void OnEqSerenadePro3(object s, RoutedEventArgs e) { Select(EqGroup, EqSerenadeBtnPro3); Do(BudsConnection.Eq(0x02), "EQ Serenade"); }
+    private void OnEqBassPro3(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtnPro3); Do(BudsConnection.Eq(0x03), "EQ Bass"); }
+    private void OnEqDynPro3(object s, RoutedEventArgs e) { Select(EqGroup, EqDynBtnPro3); Do(BudsConnection.Eq(0x07), "EQ DynAudio"); }
 
     // ── Custom EQ (6 bands) ──
     private readonly System.Windows.Controls.Slider[] _bands = new System.Windows.Controls.Slider[6];
@@ -709,7 +834,7 @@ public partial class MainWindow : Window
         _tray = new WinForms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "OnePlus Buds 4",
+            Text = _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds 4",
             Visible = false
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
@@ -724,7 +849,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, "OnePlus Buds 4", "Running in the tray", WinForms.ToolTipIcon.None); }
+            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds 4", "Running in the tray", WinForms.ToolTipIcon.None); }
         }
     }
 

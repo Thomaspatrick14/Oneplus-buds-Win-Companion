@@ -287,7 +287,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Image Source="app.ico" Width="16" Height="16" Margin="12,0,6,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Text="OnePlus Buds 4" Foreground="#8A90A0" FontSize="12"
+            <TextBlock x:Name="TitleText" Grid.Column="1" Text="OnePlus Buds 4" Foreground="#8A90A0" FontSize="12"
                        VerticalAlignment="Center"/>
             <Button Grid.Column="2" Content="📟 Log" Width="56" Style="{StaticResource ChromeBtn}"
                     Click="OnOpenLog" ToolTip="Open Live Bluetooth Packet Monitor"/>
@@ -318,6 +318,7 @@
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="DeviceCombo" Grid.Column="0" Height="34" IsEditable="True"
                                   VerticalContentAlignment="Center"
+                                  SelectionChanged="OnDeviceSelectionChanged"
                                   ToolTip="Pick a paired device, or type/paste a MAC"/>
                         <Button x:Name="RefreshBtn" Grid.Column="1" Content="⟳" Width="38" Height="34"
                                 Margin="6,0,0,0" Style="{StaticResource Pill}" Click="OnRefreshDevices"/>
@@ -337,27 +338,45 @@
                             <TextBlock x:Name="WornText" Text="" HorizontalAlignment="Right"
                                        Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
                         </Grid>
-                        <!-- 4 Main Modes: Noise Cancellation, Adaptive, Transparency, Off -->
-                        <UniformGrid Columns="4">
-                            <Button x:Name="AncBtn" Style="{StaticResource Pill}" Click="OnAnc" ToolTip="Noise Cancellation">
-                                <TextBlock Text="Noise Cancellation" TextWrapping="Wrap" TextAlignment="Center"
-                                           FontSize="10.5" LineHeight="12"/>
-                            </Button>
-                            <Button x:Name="AdaptiveBtn" Content="Adaptive" FontSize="11" Style="{StaticResource Pill}" Click="OnAdaptive" ToolTip="Adaptive"/>
-                            <Button x:Name="TransBtn" Content="Transparency" FontSize="11" Style="{StaticResource Pill}" Click="OnTrans" ToolTip="Transparency"/>
-                            <Button x:Name="OffBtn" Content="Off" FontSize="12" Style="{StaticResource Pill}" Click="OnOff" ToolTip="Off"/>
-                        </UniformGrid>
-                        <!-- Noise Cancellation Levels: High, Moderate, Low, Auto -->
-                        <UniformGrid x:Name="AncLevelsGrid" Columns="4" Margin="0,4,0,0" Visibility="Collapsed">
-                            <Button x:Name="HighBtn" Content="High" FontSize="11" Style="{StaticResource Pill}" Click="OnHigh"/>
-                            <Button x:Name="MidBtn" Content="Moderate" FontSize="11" Style="{StaticResource Pill}" Click="OnMid"/>
-                            <Button x:Name="LowBtn" Content="Low" FontSize="11" Style="{StaticResource Pill}" Click="OnLow"/>
-                            <Button x:Name="AutoBtn" Content="Auto" FontSize="11" Style="{StaticResource Pill}" Click="OnAuto"/>
-                        </UniformGrid>
+                        <!-- Buds 4 Noise Control Panel -->
+                        <StackPanel x:Name="NoisePanelBuds4">
+                            <!-- 4 Main Modes: Noise Cancellation, Adaptive, Transparency, Off -->
+                            <UniformGrid Columns="4">
+                                <Button x:Name="AncBtn" Style="{StaticResource Pill}" Click="OnAnc" ToolTip="Noise Cancellation">
+                                    <TextBlock Text="Noise Cancellation" TextWrapping="Wrap" TextAlignment="Center"
+                                               FontSize="10.5" LineHeight="12"/>
+                                </Button>
+                                <Button x:Name="AdaptiveBtn" Content="Adaptive" FontSize="11" Style="{StaticResource Pill}" Click="OnAdaptive" ToolTip="Adaptive"/>
+                                <Button x:Name="TransBtn" Content="Transparency" FontSize="11" Style="{StaticResource Pill}" Click="OnTrans" ToolTip="Transparency"/>
+                                <Button x:Name="OffBtn" Content="Off" FontSize="12" Style="{StaticResource Pill}" Click="OnOff" ToolTip="Off"/>
+                            </UniformGrid>
+                            <!-- Noise Cancellation Levels: High, Moderate, Low, Auto -->
+                            <UniformGrid x:Name="AncLevelsGrid" Columns="4" Margin="0,4,0,0" Visibility="Collapsed">
+                                <Button x:Name="HighBtn" Content="High" FontSize="11" Style="{StaticResource Pill}" Click="OnHigh"/>
+                                <Button x:Name="MidBtn" Content="Moderate" FontSize="11" Style="{StaticResource Pill}" Click="OnMid"/>
+                                <Button x:Name="LowBtn" Content="Low" FontSize="11" Style="{StaticResource Pill}" Click="OnLow"/>
+                                <Button x:Name="AutoBtn" Content="Auto" FontSize="11" Style="{StaticResource Pill}" Click="OnAuto"/>
+                            </UniformGrid>
+                        </StackPanel>
+
+                        <!-- Buds Pro 3 Noise Control Panel (Nico's Original) -->
+                        <StackPanel x:Name="NoisePanelPro3" Visibility="Collapsed">
+                            <UniformGrid Columns="3">
+                                <Button x:Name="AncBtnPro3" Content="ANC" Style="{StaticResource Pill}" Click="OnAncPro3"/>
+                                <Button x:Name="TransBtnPro3" Content="Transparency" Style="{StaticResource Pill}" Click="OnTransPro3"/>
+                                <Button x:Name="OffBtnPro3" Content="Off" Style="{StaticResource Pill}" Click="OnOffPro3"/>
+                            </UniformGrid>
+                            <UniformGrid Columns="4" Margin="0,4,0,0">
+                                <Button x:Name="HighBtnPro3" Content="High" FontSize="11" Style="{StaticResource Pill}" Click="OnHighPro3"/>
+                                <Button x:Name="MidBtnPro3" Content="Mid" FontSize="11" Style="{StaticResource Pill}" Click="OnMidPro3"/>
+                                <Button x:Name="LowBtnPro3" Content="Low" FontSize="11" Style="{StaticResource Pill}" Click="OnLowPro3"/>
+                                <Button x:Name="AutoBtnPro3" Content="Auto" FontSize="11" Style="{StaticResource Pill}" Click="OnAutoPro3"/>
+                            </UniformGrid>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Card}">
+                <Border x:Name="EarbudControlsCard" Style="{StaticResource Card}">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
                             <TextBlock Text="EARBUD CONTROLS" Style="{StaticResource Header}" VerticalAlignment="Center" Margin="2,0,0,0"/>
@@ -449,10 +468,19 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="EQ — SOUND MASTER" Style="{StaticResource Header}"/>
-                        <UniformGrid Columns="3">
+                        <!-- Buds 4 EQ Presets -->
+                        <UniformGrid x:Name="EqPanelBuds4" Columns="3">
                             <Button x:Name="EqBalancedBtn" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalanced"/>
                             <Button x:Name="EqVocalsBtn" Content="Clear Vocals" Style="{StaticResource Pill}" Click="OnEqVocals"/>
                             <Button x:Name="EqBassBtn" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBass"/>
+                        </UniformGrid>
+                        <!-- Buds Pro 3 EQ Presets (Nico's Original) -->
+                        <UniformGrid x:Name="EqPanelPro3" Columns="3" Visibility="Collapsed">
+                            <Button x:Name="EqBalancedBtnPro3" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalancedPro3"/>
+                            <Button x:Name="EqBoldBtnPro3" Content="Bold" Style="{StaticResource Pill}" Click="OnEqBoldPro3"/>
+                            <Button x:Name="EqSerenadeBtnPro3" Content="Serenade" Style="{StaticResource Pill}" Click="OnEqSerenadePro3"/>
+                            <Button x:Name="EqBassBtnPro3" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBassPro3"/>
+                            <Button x:Name="EqDynBtnPro3" Content="DynAudio" Style="{StaticResource Pill}" Click="OnEqDynPro3"/>
                         </UniformGrid>
                     </StackPanel>
                 </Border>
