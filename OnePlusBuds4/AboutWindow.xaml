@@ -42,12 +42,14 @@
                 <Image Source="app.ico" Width="40" Height="40" Margin="0,0,0,10"/>
                 <TextBlock Text="OnePlus Buds Controller" Foreground="#E6E8EE"
                            FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="Supports OnePlus Buds 4 &amp; Buds Pro 3" Foreground="#4C77F0"
+                           FontSize="11" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,3,0,4"/>
                 <TextBlock Text="Forked from nic0manz" Foreground="#8A90A0"
-                           FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,2"/>
+                           FontSize="12" HorizontalAlignment="Center" Margin="0,2,0,2"/>
                 <TextBlock Text="Rewritten by Thomaspatrick14" Foreground="#8A90A0"
                            FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,2"/>
                 <TextBlock Text="(with AI assistance)" Foreground="#6A7080"
-                           FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                           FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,10"/>
                 <TextBlock HorizontalAlignment="Center">
                     <Hyperlink x:Name="RepoLink" RequestNavigate="OnNavigate"
                                NavigateUri="https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion">
