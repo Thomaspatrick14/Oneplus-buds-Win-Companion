@@ -5,3 +5,4 @@ out/
 *.user
 .vs/
 out-fx/
+*.exe

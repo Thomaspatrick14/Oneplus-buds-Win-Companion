@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using WinForms = System.Windows.Forms;
 
-namespace OnePlusBudsPro3;
+namespace OnePlusBuds4;
 
 public partial class MainWindow : Window
 {
@@ -25,6 +25,12 @@ public partial class MainWindow : Window
     private void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnClose(object sender, RoutedEventArgs e) => Close();
     private void OnAbout(object sender, RoutedEventArgs e) => new AboutWindow { Owner = this }.ShowDialog();
+    private void OnOpenLog(object sender, RoutedEventArgs e)
+    {
+        _logWindow.Owner = this;
+        _logWindow.Show();
+        _logWindow.Activate();
+    }
 
     private static System.Drawing.Icon LoadTrayIcon()
     {
@@ -47,6 +53,7 @@ public partial class MainWindow : Window
     private bool? _anyInEar;          // at least one earbud in an ear? drives the "Worn" label
     private WinForms.NotifyIcon? _tray;
     private System.Windows.Threading.DispatcherTimer? _pollTimer;
+    private readonly PacketLogWindow _logWindow = new();
 
     private record DeviceItem(string Name, string Mac)
     {
@@ -57,14 +64,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SetupTray();
-        Loaded += async (_, _) => { LoadDevices(); BuildBands(); PopulateSlotCombo(); SetControlsEnabled(false); await AutoConnectAsync(); };
+        Loaded += async (_, _) => { LoadDevices(); BuildBands(); PopulateSlotCombo(); InitGestureCombos(); SetControlsEnabled(false); await AutoConnectAsync(); };
         StateChanged += OnStateChanged;
-        Closed += (_, _) => { _pollTimer?.Stop(); _buds?.Close(); _tray?.Dispose(); };
+        Closed += (_, _) => { _pollTimer?.Stop(); _buds?.Close(); _tray?.Dispose(); _logWindow.Close(); };
     }
 
     // ── Device list ──
-    private const string DefaultMac = "40:72:18:BE:4D:8C";
-
     private void LoadDevices()
     {
         var devices = BudsConnection.PairedDevices();
@@ -77,7 +82,7 @@ public partial class MainWindow : Window
                 continue;
             var item = new DeviceItem(name, mac);
             DeviceCombo.Items.Add(item);
-            if (preferred == null) preferred = item;
+            if (preferred == null || n.Contains("buds 4")) preferred = item;
         }
         if (preferred != null)
         {
@@ -86,11 +91,11 @@ public partial class MainWindow : Window
         }
         else
         {
-            // No auto-detected device: let the user type/paste a MAC (prefilled).
-            DeviceCombo.Text = DefaultMac;
+            // No auto-detected device: user can paste a MAC if needed
+            DeviceCombo.Text = "";
             SetStatus(devices.Count > 0
                 ? "Pick a device or type a MAC, then Connect"
-                : "No paired list available — type/paste the MAC, then Connect");
+                : "No paired OnePlus Buds found — pair in Windows Bluetooth settings or paste MAC");
         }
     }
 
@@ -126,7 +131,10 @@ public partial class MainWindow : Window
         _buds?.Close();
         _buds = new BudsConnection(mac);
         _buds.PacketReceived += OnPacketReceived; // instant updates pushed by the earbuds
+        _buds.PacketReceived += d => _logWindow.LogPacket(d, true);
+        _buds.PacketSent += d => _logWindow.LogPacket(d, false);
         _buds.Disconnected += OnDisconnected;
+        _logWindow.SetSender(p => { try { _buds?.Send(p); } catch { } });
         SetStatus($"Connecting to {mac}…");
         try
         {
@@ -143,7 +151,7 @@ public partial class MainWindow : Window
             SetControlsEnabled(true);
             UpdateWornText();              // reflect any wear state captured during the init broadcast
             SetStatus("Connected to " + mac);
-            _buds.RequestFullState();      // ANC, EQ, BassWave, wear, custom EQ list, battery
+            _buds.RequestFullState();      // ANC, EQ, BassWave, wear, custom EQ list, gestures, battery
             StartBatteryTimer();           // battery isn't pushed, so we poll it gently
         }
         catch (SocketException ex)
@@ -164,13 +172,20 @@ public partial class MainWindow : Window
     private void SetControlsEnabled(bool enabled)
     {
         EqBalancedBtn.IsEnabled = enabled;
-        EqBoldBtn.IsEnabled = enabled;
-        EqSerenadeBtn.IsEnabled = enabled;
+        EqVocalsBtn.IsEnabled = enabled;
         EqBassBtn.IsEnabled = enabled;
-        EqDynBtn.IsEnabled = enabled;
         BassToggle.IsEnabled = enabled;
         ApplyEqBtn.IsEnabled = enabled;
         SlotCombo.IsEnabled = enabled;
+        GestureLeftBtn.IsEnabled = enabled;
+        GestureRightBtn.IsEnabled = enabled;
+        SingleTapCombo.IsEnabled = enabled;
+        DoubleTapCombo.IsEnabled = enabled;
+        TripleTapCombo.IsEnabled = enabled;
+        SlideCombo.IsEnabled = enabled;
+        TouchHoldCombo.IsEnabled = enabled;
+        CallDoubleTapCombo.IsEnabled = enabled;
+        CallTouchHoldCombo.IsEnabled = enabled;
         UpdateAncEnabled(); // ANC also depends on whether the earbuds are worn
     }
 
@@ -181,6 +196,7 @@ public partial class MainWindow : Window
     {
         bool en = _ready && _anyInEar != false;
         AncBtn.IsEnabled = en;
+        AdaptiveBtn.IsEnabled = en;
         TransBtn.IsEnabled = en;
         OffBtn.IsEnabled = en;
         HighBtn.IsEnabled = en;
@@ -252,13 +268,14 @@ public partial class MainWindow : Window
         if (BudsConnection.HasMarker(d, 0x0D, 0x81)) ApplyBassOn(d);
         if (BudsConnection.HasMarker(d, 0x81, 0x25)) ApplyBattery(d);
         if (BudsConnection.HasMarker(d, 0x22, 0x81)) ApplyCustomEqList(d);
+        if (BudsConnection.HasMarker(d, 0x08, 0x81)) ApplyGestures(d);
 
         // ANC mode: the connect-time reply (0C 81) and the live push (04 02),
         // plus a separate "current level" packet while Auto is adapting.
         var ancReply = BudsConnection.DecodeAncReply(d);
-        if (ancReply.valid) ApplyAncState(ancReply.off, ancReply.trans, ancReply.anc, ancReply.auto, ancReply.level);
+        if (ancReply.valid) ApplyAncState(ancReply.off, ancReply.trans, ancReply.anc, ancReply.auto, ancReply.adaptive, ancReply.level);
         var anc = BudsConnection.DecodeAncMode(d);
-        if (anc.valid) ApplyAncState(anc.off, anc.trans, anc.anc, anc.auto, anc.level);
+        if (anc.valid) ApplyAncState(anc.off, anc.trans, anc.anc, anc.auto, anc.adaptive, anc.level);
         var autoLevel = BudsConnection.DecodeAncAutoLevel(d) ?? BudsConnection.DecodeAncReplyAutoLevel(d);
         if (autoLevel != null) ApplyAutoLevel(autoLevel);
 
@@ -307,14 +324,31 @@ public partial class MainWindow : Window
     // ── Apply a pushed state packet to the UI ────────────────────────
     private bool _ancAuto; // true while ANC is in Auto mode (level is adaptive)
 
-    private void ApplyAncState(bool off, bool trans, bool anc, bool auto, string level)
+    private void ApplyAncState(bool off, bool trans, bool anc, bool auto, bool adaptive, string level)
     {
         _ancAuto = auto;
-        if (off)        { Select(NoiseGroup, OffBtn);   foreach (var b in LevelGroup) b.Tag = null; }
-        else if (trans) { Select(NoiseGroup, TransBtn); foreach (var b in LevelGroup) b.Tag = null; }
+        if (off)
+        {
+            Select(NoiseGroup, OffBtn);
+            AncLevelsGrid.Visibility = Visibility.Collapsed;
+            foreach (var b in LevelGroup) b.Tag = null;
+        }
+        else if (trans)
+        {
+            Select(NoiseGroup, TransBtn);
+            AncLevelsGrid.Visibility = Visibility.Collapsed;
+            foreach (var b in LevelGroup) b.Tag = null;
+        }
+        else if (adaptive)
+        {
+            Select(NoiseGroup, AdaptiveBtn);
+            AncLevelsGrid.Visibility = Visibility.Collapsed;
+            foreach (var b in LevelGroup) b.Tag = null;
+        }
         else if (anc)
         {
             Select(NoiseGroup, AncBtn);
+            AncLevelsGrid.Visibility = Visibility.Visible;
             var levelBtn = level switch
             {
                 "High"     => HighBtn,
@@ -346,6 +380,7 @@ public partial class MainWindow : Window
         {
             foreach (var b in NoiseGroup) b.Tag = null;
             foreach (var b in LevelGroup) b.Tag = null;
+            AncLevelsGrid.Visibility = Visibility.Collapsed;
             OffBtn.Tag = "auto";
         }
     }
@@ -358,10 +393,8 @@ public partial class MainWindow : Window
         var eqBtn = preset.Value switch
         {
             0x00 => EqBalancedBtn,
-            0x01 => EqBoldBtn,
-            0x02 => EqSerenadeBtn,
-            0x03 => EqBassBtn,
-            0x07 => EqDynBtn,
+            0x01 => EqBassBtn,
+            0x02 => EqVocalsBtn,
             _    => null
         };
         if (eqBtn != null) Select(EqGroup, eqBtn);
@@ -450,30 +483,82 @@ public partial class MainWindow : Window
     private void SetStatus(string s) => StatusText.Text = s;
 
     // ── Selection highlight ──
-    private System.Windows.Controls.Button[] NoiseGroup => new[] { AncBtn, TransBtn, OffBtn };
+    private System.Windows.Controls.Button[] NoiseGroup => new[] { AncBtn, AdaptiveBtn, TransBtn, OffBtn };
     private System.Windows.Controls.Button[] LevelGroup => new[] { HighBtn, MidBtn, LowBtn, AutoBtn };
-    private System.Windows.Controls.Button[] EqGroup => new[] { EqBalancedBtn, EqBoldBtn, EqSerenadeBtn, EqBassBtn, EqDynBtn };
+    private System.Windows.Controls.Button[] EqGroup => new[] { EqBalancedBtn, EqVocalsBtn, EqBassBtn };
 
     private static void Select(System.Windows.Controls.Button[] group, System.Windows.Controls.Button active)
     {
         foreach (var b in group) b.Tag = (b == active) ? "sel" : null;
     }
 
-    // ── ANC ──
-    private void OnAnc(object s, RoutedEventArgs e) { Select(NoiseGroup, AncBtn); Do(BudsConnection.Anc(0x02), "ANC on"); }
-    private void OnTrans(object s, RoutedEventArgs e) { Select(NoiseGroup, TransBtn); foreach (var b in LevelGroup) b.Tag = null; Do(BudsConnection.Anc(0x04), "Transparency"); }
-    private void OnOff(object s, RoutedEventArgs e) { Select(NoiseGroup, OffBtn); foreach (var b in LevelGroup) b.Tag = null; Do(BudsConnection.Anc(0x01), "ANC off"); }
-    private void OnHigh(object s, RoutedEventArgs e) { Select(LevelGroup, HighBtn); Select(NoiseGroup, AncBtn); Do(BudsConnection.AncLevel(0x10), "ANC High"); }
-    private void OnMid(object s, RoutedEventArgs e) { Select(LevelGroup, MidBtn); Select(NoiseGroup, AncBtn); Do(BudsConnection.AncLevel(0x20), "ANC Moderate"); }
-    private void OnLow(object s, RoutedEventArgs e) { Select(LevelGroup, LowBtn); Select(NoiseGroup, AncBtn); Do(BudsConnection.AncLevel(0x40), "ANC Low"); }
-    private void OnAuto(object s, RoutedEventArgs e) { Select(LevelGroup, AutoBtn); Select(NoiseGroup, AncBtn); Do(BudsConnection.AncLevel(0x80), "ANC Auto"); }
+    // ── Noise Control Modes & Levels ──
+    private void OnAnc(object s, RoutedEventArgs e)
+    {
+        Select(NoiseGroup, AncBtn);
+        AncLevelsGrid.Visibility = Visibility.Visible;
+        bool hasLevel = false;
+        foreach (var b in LevelGroup) if (b.Tag as string == "sel") { hasLevel = true; break; }
+        if (!hasLevel) Select(LevelGroup, AutoBtn);
+        Do(BudsConnection.Anc(0x02), "Noise Cancellation");
+    }
+
+    private void OnAdaptive(object s, RoutedEventArgs e)
+    {
+        Select(NoiseGroup, AdaptiveBtn);
+        AncLevelsGrid.Visibility = Visibility.Collapsed;
+        foreach (var b in LevelGroup) b.Tag = null;
+        Do(BudsConnection.AncAdaptive(), "Adaptive");
+    }
+
+    private void OnTrans(object s, RoutedEventArgs e)
+    {
+        Select(NoiseGroup, TransBtn);
+        AncLevelsGrid.Visibility = Visibility.Collapsed;
+        foreach (var b in LevelGroup) b.Tag = null;
+        Do(BudsConnection.Anc(0x04), "Transparency");
+    }
+
+    private void OnOff(object s, RoutedEventArgs e)
+    {
+        Select(NoiseGroup, OffBtn);
+        AncLevelsGrid.Visibility = Visibility.Collapsed;
+        foreach (var b in LevelGroup) b.Tag = null;
+        Do(BudsConnection.Anc(0x01), "ANC off");
+    }
+
+    private void OnHigh(object s, RoutedEventArgs e)
+    {
+        Select(LevelGroup, HighBtn);
+        Select(NoiseGroup, AncBtn);
+        Do(BudsConnection.AncLevel(0x10), "ANC High");
+    }
+
+    private void OnMid(object s, RoutedEventArgs e)
+    {
+        Select(LevelGroup, MidBtn);
+        Select(NoiseGroup, AncBtn);
+        Do(BudsConnection.AncLevel(0x20), "ANC Moderate");
+    }
+
+    private void OnLow(object s, RoutedEventArgs e)
+    {
+        Select(LevelGroup, LowBtn);
+        Select(NoiseGroup, AncBtn);
+        Do(BudsConnection.AncLevel(0x40), "ANC Low");
+    }
+
+    private void OnAuto(object s, RoutedEventArgs e)
+    {
+        Select(LevelGroup, AutoBtn);
+        Select(NoiseGroup, AncBtn);
+        Do(BudsConnection.AncLevel(0x80), "ANC Auto");
+    }
 
     // ── EQ ──
     private void OnEqBalanced(object s, RoutedEventArgs e) { Select(EqGroup, EqBalancedBtn); Do(BudsConnection.Eq(0x00), "EQ Balanced"); }
-    private void OnEqBold(object s, RoutedEventArgs e) { Select(EqGroup, EqBoldBtn); Do(BudsConnection.Eq(0x01), "EQ Bold"); }
-    private void OnEqSerenade(object s, RoutedEventArgs e) { Select(EqGroup, EqSerenadeBtn); Do(BudsConnection.Eq(0x02), "EQ Serenade"); }
-    private void OnEqBass(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtn); Do(BudsConnection.Eq(0x03), "EQ Bass"); }
-    private void OnEqDyn(object s, RoutedEventArgs e) { Select(EqGroup, EqDynBtn); Do(BudsConnection.Eq(0x07), "EQ DynAudio"); }
+    private void OnEqVocals(object s, RoutedEventArgs e) { Select(EqGroup, EqVocalsBtn); Do(BudsConnection.Eq(0x02), "EQ Clear Vocals"); }
+    private void OnEqBass(object s, RoutedEventArgs e) { Select(EqGroup, EqBassBtn); Do(BudsConnection.Eq(0x01), "EQ Bass"); }
 
     // ── Custom EQ (6 bands) ──
     private readonly System.Windows.Controls.Slider[] _bands = new System.Windows.Controls.Slider[6];
@@ -606,7 +691,7 @@ public partial class MainWindow : Window
         _tray = new WinForms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "OnePlus Buds Pro 3",
+            Text = "OnePlus Buds 4",
             Visible = false
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
@@ -621,7 +706,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, "OnePlus Buds Pro 3", "Running in the tray", WinForms.ToolTipIcon.None); }
+            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, "OnePlus Buds 4", "Running in the tray", WinForms.ToolTipIcon.None); }
         }
     }
 
@@ -631,5 +716,159 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         Activate();
         if (_tray != null) _tray.Visible = false;
+    }
+
+    // ── Earbud Controls (Gestures) ──
+    private byte _selectedGestureSide = 1; // 1 = Left, 2 = Right
+    private bool _suppressGestureEvents;
+    private readonly System.Collections.Generic.Dictionary<(byte side, byte cat, byte gid), byte> _gestureMap = new();
+
+    private record GestureActionItem(byte ActionId, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private static readonly GestureActionItem[] SingleTapActions =
+    {
+        new(0x01, "Play / Pause"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] DoubleTapActions =
+    {
+        new(0x06, "Next track"),
+        new(0x05, "Previous track"),
+        new(0x01, "Play / Pause"),
+        new(0x03, "Voice Assistant"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] TripleTapActions =
+    {
+        new(0x03, "Voice Assistant"),
+        new(0x05, "Previous track"),
+        new(0x06, "Next track"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] SlideActions =
+    {
+        new(0x08, "Volume control"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] TouchHoldActions =
+    {
+        new(0x07, "Noise control"),
+        new(0x03, "Voice Assistant"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] CallDoubleTapActions =
+    {
+        new(0x1D, "Answer / End call"),
+        new(0x00, "None")
+    };
+
+    private static readonly GestureActionItem[] CallTouchHoldActions =
+    {
+        new(0x1C, "Decline call"),
+        new(0x00, "None")
+    };
+
+    private void InitGestureCombos()
+    {
+        SingleTapCombo.ItemsSource = SingleTapActions;
+        DoubleTapCombo.ItemsSource = DoubleTapActions;
+        TripleTapCombo.ItemsSource = TripleTapActions;
+        SlideCombo.ItemsSource = SlideActions;
+        TouchHoldCombo.ItemsSource = TouchHoldActions;
+        CallDoubleTapCombo.ItemsSource = CallDoubleTapActions;
+        CallTouchHoldCombo.ItemsSource = CallTouchHoldActions;
+        UpdateGestureCombos();
+    }
+
+    private void OnGestureLeftTab(object sender, RoutedEventArgs e)
+    {
+        _selectedGestureSide = 1;
+        GestureLeftBtn.Tag = "sel";
+        GestureRightBtn.Tag = null;
+        UpdateGestureCombos();
+    }
+
+    private void OnGestureRightTab(object sender, RoutedEventArgs e)
+    {
+        _selectedGestureSide = 2;
+        GestureRightBtn.Tag = "sel";
+        GestureLeftBtn.Tag = null;
+        UpdateGestureCombos();
+    }
+
+    private byte GetAction(byte side, byte cat, byte gid, byte defaultAct) =>
+        _gestureMap.TryGetValue((side, cat, gid), out var act) ? act : defaultAct;
+
+    private static void SelectComboAction(System.Windows.Controls.ComboBox cb, GestureActionItem[] items, byte actionId)
+    {
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (items[i].ActionId == actionId)
+            {
+                cb.SelectedIndex = i;
+                return;
+            }
+        }
+        if (items.Length > 0 && cb.SelectedIndex < 0) cb.SelectedIndex = 0;
+    }
+
+    private void UpdateGestureCombos()
+    {
+        _suppressGestureEvents = true;
+        try
+        {
+            SelectComboAction(SingleTapCombo, SingleTapActions, GetAction(_selectedGestureSide, 1, 1, 0x01));
+            SelectComboAction(DoubleTapCombo, DoubleTapActions, GetAction(_selectedGestureSide, 1, 2, 0x06));
+            SelectComboAction(TripleTapCombo, TripleTapActions, GetAction(_selectedGestureSide, 1, 3, _selectedGestureSide == 1 ? (byte)0x03 : (byte)0x05));
+            SelectComboAction(SlideCombo, SlideActions, GetAction(_selectedGestureSide, 1, 4, 0x08));
+            SelectComboAction(TouchHoldCombo, TouchHoldActions, GetAction(_selectedGestureSide, 1, 5, 0x07));
+            SelectComboAction(CallDoubleTapCombo, CallDoubleTapActions, GetAction(_selectedGestureSide, 6, 2, 0x1D));
+            SelectComboAction(CallTouchHoldCombo, CallTouchHoldActions, GetAction(_selectedGestureSide, 6, 6, 0x1C));
+        }
+        finally
+        {
+            _suppressGestureEvents = false;
+        }
+    }
+
+    private void ApplyGestures(byte[] d)
+    {
+        var entries = BudsConnection.DecodeGestures(d);
+        if (entries.Count == 0) return;
+        foreach (var e in entries)
+        {
+            _gestureMap[(e.Side, e.Category, e.GestureId)] = e.ActionId;
+        }
+        UpdateGestureCombos();
+    }
+
+    private void OnGestureComboChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressGestureEvents || !_ready || _buds == null) return;
+        if (sender is not System.Windows.Controls.ComboBox cb || cb.SelectedItem is not GestureActionItem item) return;
+
+        byte cat = 1;
+        byte gid = 1;
+        string name = "Gesture";
+
+        if (cb == SingleTapCombo)          { cat = 1; gid = 1; name = "Single-tap"; }
+        else if (cb == DoubleTapCombo)     { cat = 1; gid = 2; name = "Double-tap"; }
+        else if (cb == TripleTapCombo)     { cat = 1; gid = 3; name = "Triple-tap"; }
+        else if (cb == SlideCombo)         { cat = 1; gid = 4; name = "Slide"; }
+        else if (cb == TouchHoldCombo)     { cat = 1; gid = 5; name = "Touch & hold"; }
+        else if (cb == CallDoubleTapCombo) { cat = 6; gid = 2; name = "Call Double-tap"; }
+        else if (cb == CallTouchHoldCombo) { cat = 6; gid = 6; name = "Call Long touch"; }
+
+        _gestureMap[(_selectedGestureSide, cat, gid)] = item.ActionId;
+        string sideName = _selectedGestureSide == 1 ? "Left" : "Right";
+        Do(BudsConnection.SetGesture(_selectedGestureSide, cat, gid, item.ActionId), $"{sideName} {name} -> {item.Label}");
     }
 }

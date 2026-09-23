@@ -1,7 +1,7 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Windows;
 
-namespace OnePlusBudsPro3;
+namespace OnePlusBuds4;
 
 /// <summary>
 /// Interaction logic for App.xaml
@@ -12,10 +12,10 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        _mutex = new Mutex(true, "OnePlusBudsPro3_SingleInstance", out bool isNew);
+        _mutex = new Mutex(true, "OnePlusBuds4_SingleInstance", out bool isNew);
         if (!isNew)
         {
-            System.Windows.MessageBox.Show("OnePlus Buds Pro 3 is already running (check the system tray).",
+            System.Windows.MessageBox.Show("OnePlus Buds 4 is already running (check the system tray).",
                 "Already running", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;

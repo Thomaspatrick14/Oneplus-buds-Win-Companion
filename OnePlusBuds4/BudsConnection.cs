@@ -4,7 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
-namespace OnePlusBudsPro3;
+namespace OnePlusBuds4;
 
 /// <summary>Raw SOCKADDR_BTH endpoint for an RFCOMM channel (mirrors Python's winsock connect).</summary>
 internal sealed class BtEndPoint : EndPoint
@@ -34,8 +34,7 @@ internal sealed class BtEndPoint : EndPoint
 }
 
 /// <summary>
-/// Persistent RFCOMM connection to OnePlus Buds Pro 3 (Bluetooth Classic, channel 15).
-/// Packet builders ported from the Python op_buds3_pro.py script.
+/// Persistent RFCOMM connection to OnePlus Buds 4 (Bluetooth Classic, channel 15).
 /// </summary>
 public class BudsConnection : IDisposable
 {
@@ -88,8 +87,12 @@ public class BudsConnection : IDisposable
     // ── Packet builders ─────────────────────────────────────────────
     public static byte[] Anc(byte mode) => new byte[] { 0xAA, 0x0A, 0x00, 0x00, 0x04, 0x04, 0x42, 0x03, 0x00, 0x01, 0x01, mode };
     // mode: 0x02=ANC on, 0x01=off, 0x04=transparency
-    public static byte[] AncLevel(byte hi) => new byte[] { 0xAA, 0x0B, 0x00, 0x00, 0x04, 0x04, 0x42, 0x04, 0x00, 0x01, 0x01, hi, 0x00 };
+    public static byte[] AncMask(ushort mask) => new byte[] {
+        0xAA, 0x0B, 0x00, 0x00, 0x04, 0x04, 0x42, 0x04, 0x00, 0x01, 0x01, (byte)(mask & 0xFF), (byte)((mask >> 8) & 0xFF)
+    };
+    public static byte[] AncLevel(byte hi) => AncMask(hi);
     // hi: 0x10=High, 0x20=Moderate, 0x40=Low, 0x80=Auto
+    public static byte[] AncAdaptive() => AncMask(0x0800);
     public static byte[] Eq(byte preset) => new byte[] { 0xAA, 0x08, 0x00, 0x00, 0x06, 0x04, 0x00, 0x01, 0x00, preset };
     public static byte[] BassWave(int value)
     {
@@ -98,6 +101,8 @@ public class BudsConnection : IDisposable
     }
     public static byte[] Switch(byte feature, bool on) =>
         new byte[] { 0xAA, 0x09, 0x00, 0x00, 0x03, 0x04, 0x00, 0x02, 0x00, feature, (byte)(on ? 1 : 0) };
+    public static byte[] SetGesture(byte side, byte category, byte gestureId, byte actionId) =>
+        new byte[] { 0xAA, 0x0B, 0x00, 0x00, 0x08, 0x04, 0x00, 0x04, 0x00, side, category, gestureId, actionId };
     // ── State queries (GET) ─────────────────────────────────────────
     // Function codes come from the HeyMelody app (Protocol.java). The high
     // byte 0x01 marks a request; the earbuds reply with the same code but
@@ -106,6 +111,8 @@ public class BudsConnection : IDisposable
     static readonly byte[] GET_CUSTOM_EQ = { 0xAA, 0x07, 0x00, 0x00, 0x22, 0x01, 0x00, 0x00, 0x00 };
     static readonly byte[] GET_EQ        = { 0xAA, 0x07, 0x00, 0x00, 0x0F, 0x01, 0x00, 0x00, 0x00 }; // fn 271
     static readonly byte[] GET_BW_VALUE  = { 0xAA, 0x07, 0x00, 0x00, 0x24, 0x01, 0x00, 0x00, 0x00 }; // fn 292 (BassWave level)
+    static readonly byte[] GET_GESTURES  = { 0xAA, 0x07, 0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00 }; // fn 264 (Key mapping / gestures)
+    public void RequestGestures() => Send(GET_GESTURES);
     // fn 269 = getFeatureSwitchStatus. Unlike the others this needs a payload:
     // [count][featureId...]. BassWave is feature id 0x1D (29), so we ask for
     // exactly that one. The on/off state lives here, not in fn 291 as one might expect.
@@ -159,6 +166,8 @@ public class BudsConnection : IDisposable
 
     /// <summary>Raised on the reader thread for every complete packet received.</summary>
     public event Action<byte[]>? PacketReceived;
+    /// <summary>Raised whenever a packet is transmitted.</summary>
+    public event Action<byte[]>? PacketSent;
     /// <summary>Raised on the reader thread when the channel drops.</summary>
     public event Action? Disconnected;
 
@@ -216,10 +225,113 @@ public class BudsConnection : IDisposable
         RequestBassWaveOn();
         RequestWear();
         RequestCustomEqList();
+        RequestGestures();
         RequestBattery();
     }
 
-    private void WriteRaw(byte[] data) => _sock!.Send(data);
+    private void WriteRaw(byte[] data)
+    {
+        _sock!.Send(data);
+        PacketSent?.Invoke(data);
+    }
+
+    public static string FormatHex(byte[] d) => BitConverter.ToString(d).Replace("-", " ");
+
+    public static string AnnotatePacket(byte[] d, bool incoming)
+    {
+        if (d == null || d.Length < 6) return "";
+        byte cmdLo = d[4], cmdHi = d[5];
+        int cmd16 = cmdLo | (cmdHi << 8);
+
+        if (!incoming)
+        {
+            return cmd16 switch
+            {
+                0x0100 => "Hello handshake",
+                0x8500 => "Register handshake",
+                0x0404 => "Set ANC (cmd 0x0404)",
+                0x0408 => $"Set Gesture (side {d[^4]}, cat {d[^3]}, gid {d[^2]} -> act {d[^1]})",
+                0x0406 => $"Set EQ preset {d[^1]}",
+                0x041B => $"Set BassWave {(sbyte)d[^1]}",
+                0x0403 => $"Set Switch {d[^2]}={(d[^1] == 1 ? "on" : "off")}",
+                0x0418 => "Set Custom EQ",
+                0x0106 => "Query Battery",
+                0x0108 => "Query Gestures",
+                0x0109 => "Query Wear",
+                0x010C => "Query ANC State",
+                0x010F => "Query EQ Preset",
+                0x010D => "Query Switch Status",
+                0x0122 => "Query Custom EQ",
+                0x0124 => "Query BassWave Value",
+                _ => $"Cmd 0x{cmd16:X4}"
+            };
+        }
+
+        // Incoming packets
+        if (cmdHi == 0x84 && d.Length >= 10)
+        {
+            return $"Ack for cmd 0x{cmdLo:X2} (status={d[9]}{(d[9] == 0 ? " OK" : " ERR")})";
+        }
+        if (cmdHi == 0x05)
+        {
+            var st = DecodeStatus(d);
+            return st != null ? $"Change Notification: {st}" : "Change Notification (0x05)";
+        }
+        if (cmdHi == 0x02 && cmdLo == 0x04)
+        {
+            if (d.Length >= 14 && d[10] == 0x01)
+            {
+                int v = d[12] | (d[13] << 8);
+                string desc = v switch
+                {
+                    0x0008 => "Off",
+                    0x0100 => "Transparency",
+                    0x0800 => "Adaptive",
+                    0x0010 => "ANC High",
+                    0x0020 => "ANC Moderate",
+                    0x0040 => "ANC Low",
+                    0x0080 => "ANC Auto",
+                    _ => $"0x{v:X4}"
+                };
+                return $"Live ANC Mode: {desc}";
+            }
+            if (d.Length >= 14 && d[10] == 0x04)
+            {
+                int v = d[12] | (d[13] << 8);
+                string desc = v switch
+                {
+                    0x0010 => "High",
+                    0x0020 => "Moderate",
+                    0x0040 => "Low",
+                    _ => $"0x{v:X4}"
+                };
+                return $"Live Auto Level: {desc}";
+            }
+            if (d.Length >= 10 && d[9] == 0xF1)
+            {
+                return $"Setting 0xF1: {FormatHex(d[9..])}";
+            }
+            return "Live Status Notification (0x0402)";
+        }
+        if (cmdHi == 0x81)
+        {
+            return cmdLo switch
+            {
+                0x06 => "Reply Battery",
+                0x08 => "Reply Gestures",
+                0x09 => "Reply Wear",
+                0x0C => "Reply ANC State",
+                0x0F => $"Reply EQ Preset ({d[^1]})",
+                0x0D => "Reply Switch Status",
+                0x22 => "Reply Custom EQ",
+                0x24 => $"Reply BassWave Value ({(sbyte)d[^1]})",
+                _ => $"Reply 0x{cmdLo:X2}81"
+            };
+        }
+        if (cmdHi == 0x25 && cmdLo == 0x81) return "Reply Battery (0x8125)";
+
+        return $"Packet 0x{cmd16:X4}";
+    }
 
     // ── Background reader ────────────────────────────────────────────
     private void StartReader()
@@ -386,7 +498,7 @@ public class BudsConnection : IDisposable
     }
 
     // fn 271 → marker 0F 81; payload = [status][preset]
-    // preset: 00=Balanced, 01=Bold, 02=Serenade, 03=Bass, 07=DynAudio
+    // preset: 00=Balanced, 01=Clear Vocals, 02=Bass
     public static byte? DecodeEqPreset(byte[] d)
     {
         int i = IndexOf(d, new byte[] { 0x0F, 0x81 });
@@ -403,19 +515,19 @@ public class BudsConnection : IDisposable
         d.Length >= 14 && d[4] == 0x04 && d[5] == 0x02
         && (d[7] | (d[8] << 8)) == 5 && d[10] == field;
 
-    public static (bool valid, bool off, bool trans, bool anc, bool auto, string level) DecodeAncMode(byte[] d)
+    public static (bool valid, bool off, bool trans, bool anc, bool auto, bool adaptive, string level) DecodeAncMode(byte[] d)
     {
-        if (!IsAncMask(d, 0x01)) return (false, false, false, false, false, "");
+        if (!IsAncMask(d, 0x01)) return (false, false, false, false, false, false, "");
         return MapAncValue(d[12] | (d[13] << 8));
     }
 
     // Reply to fn 268 → marker 0C 81. The field byte (d[i+6]) says what it is:
     // 01 = current mode, 04 = the level Auto is currently using. Same mask value
     // format as the live push, so we read the ANC state at connect from here.
-    public static (bool valid, bool off, bool trans, bool anc, bool auto, string level) DecodeAncReply(byte[] d)
+    public static (bool valid, bool off, bool trans, bool anc, bool auto, bool adaptive, string level) DecodeAncReply(byte[] d)
     {
         int i = IndexOf(d, new byte[] { 0x0C, 0x81 });
-        if (i < 0 || i + 10 > d.Length || d[i + 6] != 0x01) return (false, false, false, false, false, "");
+        if (i < 0 || i + 10 > d.Length || d[i + 6] != 0x01) return (false, false, false, false, false, false, "");
         return MapAncValue(d[i + 8] | (d[i + 9] << 8));
     }
 
@@ -432,15 +544,16 @@ public class BudsConnection : IDisposable
         };
     }
 
-    private static (bool valid, bool off, bool trans, bool anc, bool auto, string level) MapAncValue(int v) => v switch
+    private static (bool valid, bool off, bool trans, bool anc, bool auto, bool adaptive, string level) MapAncValue(int v) => v switch
     {
-        0x0008 => (true, true,  false, false, false, ""),        // Off
-        0x0100 => (true, false, true,  false, false, ""),        // Transparency
-        0x0010 => (true, false, false, true,  false, "High"),
-        0x0020 => (true, false, false, true,  false, "Moderate"),
-        0x0040 => (true, false, false, true,  false, "Low"),
-        0x0080 => (true, false, false, true,  true,  "Auto"),
-        _      => (false, false, false, false, false, "")
+        0x0008 => (true, true,  false, false, false, false, ""),         // Off
+        0x0100 => (true, false, true,  false, false, false, ""),         // Transparency
+        0x0800 => (true, false, false, false, false, true,  "Adaptive"), // Adaptive
+        0x0010 => (true, false, false, true,  false, false, "High"),
+        0x0020 => (true, false, false, true,  false, false, "Moderate"),
+        0x0040 => (true, false, false, true,  false, false, "Low"),
+        0x0080 => (true, false, false, true,  true,  false, "Auto"),
+        _      => (false, false, false, false, false, false, "")
     };
 
     // The level Auto is currently applying (e.g. "Auto: Low" on the phone).
@@ -478,6 +591,26 @@ public class BudsConnection : IDisposable
             return FromFlags(d[12], d[14]);
 
         return null;
+    }
+
+    // Gesture entry: side (1=Left, 2=Right), category (1=Media, 6=Call), gestureId, actionId
+    public record GestureEntry(byte Side, byte Category, byte GestureId, byte ActionId);
+
+    public static System.Collections.Generic.List<GestureEntry> DecodeGestures(byte[] d)
+    {
+        var list = new System.Collections.Generic.List<GestureEntry>();
+        int i = IndexOf(d, new byte[] { 0x08, 0x81 });
+        if (i < 0 || i + 7 > d.Length) return list;
+        // Format: [08 81][seq][plenLo][plenHi][status][count] [side][cat][gid][act]...
+        int count = d[i + 6];
+        int start = i + 7;
+        for (int k = 0; k < count; k++)
+        {
+            int p = start + k * 4;
+            if (p + 3 >= d.Length) break;
+            list.Add(new GestureEntry(d[p], d[p + 1], d[p + 2], d[p + 3]));
+        }
+        return list;
     }
 
     private static int IndexOf(byte[] hay, byte[] needle)

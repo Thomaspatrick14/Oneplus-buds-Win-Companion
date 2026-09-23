@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Navigation;
 
-namespace OnePlusBudsPro3;
+namespace OnePlusBuds4;
 
 public partial class AboutWindow : Window
 {

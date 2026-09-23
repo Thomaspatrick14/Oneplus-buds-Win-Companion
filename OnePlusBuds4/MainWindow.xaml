@@ -1,9 +1,9 @@
-<Window x:Class="OnePlusBudsPro3.MainWindow"
+<Window x:Class="OnePlusBuds4.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OnePlus Buds Pro 3" Height="736" Width="440" MinHeight="736"
+        Title="OnePlus Buds 4" Height="760" Width="440" MinHeight="700"
         Background="#15171C" WindowStartupLocation="CenterScreen"
-        FontFamily="Segoe UI" ResizeMode="NoResize"
+        FontFamily="Segoe UI" ResizeMode="CanResizeWithGrip"
         WindowStyle="None" Icon="app.ico">
     <Window.Resources>
         <Style x:Key="Card" TargetType="Border">
@@ -284,15 +284,18 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Image Source="app.ico" Width="16" Height="16" Margin="12,0,6,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Text="OnePlus Buds Pro 3" Foreground="#8A90A0" FontSize="12"
+            <TextBlock Grid.Column="1" Text="OnePlus Buds 4" Foreground="#8A90A0" FontSize="12"
                        VerticalAlignment="Center"/>
-            <Button Grid.Column="2" Content="?" Style="{StaticResource ChromeBtn}"
+            <Button Grid.Column="2" Content="📟 Log" Width="56" Style="{StaticResource ChromeBtn}"
+                    Click="OnOpenLog" ToolTip="Open Live Bluetooth Packet Monitor"/>
+            <Button Grid.Column="3" Content="?" Style="{StaticResource ChromeBtn}"
                     Click="OnAbout" ToolTip="About"/>
-            <Button Grid.Column="3" Content="─" Style="{StaticResource ChromeBtn}"
+            <Button Grid.Column="4" Content="─" Style="{StaticResource ChromeBtn}"
                     Click="OnMinimize" ToolTip="Minimize"/>
-            <Button Grid.Column="4" Content="✕" Style="{StaticResource ChromeBtn}"
+            <Button Grid.Column="5" Content="✕" Style="{StaticResource ChromeBtn}"
                     Click="OnClose" ToolTip="Close"/>
         </Grid>
 
@@ -334,17 +337,112 @@
                             <TextBlock x:Name="WornText" Text="" HorizontalAlignment="Right"
                                        Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
                         </Grid>
-                        <UniformGrid Columns="3">
-                            <Button x:Name="AncBtn" Content="ANC" Style="{StaticResource Pill}" Click="OnAnc"/>
-                            <Button x:Name="TransBtn" Content="Transparency" Style="{StaticResource Pill}" Click="OnTrans"/>
-                            <Button x:Name="OffBtn" Content="Off" Style="{StaticResource Pill}" Click="OnOff"/>
+                        <!-- 4 Main Modes: Noise Cancellation, Adaptive, Transparency, Off -->
+                        <UniformGrid Columns="4">
+                            <Button x:Name="AncBtn" Style="{StaticResource Pill}" Click="OnAnc" ToolTip="Noise Cancellation">
+                                <TextBlock Text="Noise Cancellation" TextWrapping="Wrap" TextAlignment="Center"
+                                           FontSize="10.5" LineHeight="12"/>
+                            </Button>
+                            <Button x:Name="AdaptiveBtn" Content="Adaptive" FontSize="11" Style="{StaticResource Pill}" Click="OnAdaptive" ToolTip="Adaptive"/>
+                            <Button x:Name="TransBtn" Content="Transparency" FontSize="11" Style="{StaticResource Pill}" Click="OnTrans" ToolTip="Transparency"/>
+                            <Button x:Name="OffBtn" Content="Off" FontSize="12" Style="{StaticResource Pill}" Click="OnOff" ToolTip="Off"/>
                         </UniformGrid>
-                        <UniformGrid Columns="4" Margin="0,4,0,0">
-                            <Button x:Name="HighBtn" Content="High" Style="{StaticResource Pill}" Click="OnHigh"/>
-                            <Button x:Name="MidBtn" Content="Mid" Style="{StaticResource Pill}" Click="OnMid"/>
-                            <Button x:Name="LowBtn" Content="Low" Style="{StaticResource Pill}" Click="OnLow"/>
-                            <Button x:Name="AutoBtn" Content="Auto" Style="{StaticResource Pill}" Click="OnAuto"/>
+                        <!-- Noise Cancellation Levels: High, Moderate, Low, Auto -->
+                        <UniformGrid x:Name="AncLevelsGrid" Columns="4" Margin="0,4,0,0" Visibility="Collapsed">
+                            <Button x:Name="HighBtn" Content="High" FontSize="11" Style="{StaticResource Pill}" Click="OnHigh"/>
+                            <Button x:Name="MidBtn" Content="Moderate" FontSize="11" Style="{StaticResource Pill}" Click="OnMid"/>
+                            <Button x:Name="LowBtn" Content="Low" FontSize="11" Style="{StaticResource Pill}" Click="OnLow"/>
+                            <Button x:Name="AutoBtn" Content="Auto" FontSize="11" Style="{StaticResource Pill}" Click="OnAuto"/>
                         </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="EARBUD CONTROLS" Style="{StaticResource Header}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                            <!-- Left / Right Selector Pills -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="GestureLeftBtn" Content="Left" Width="56" Height="28" FontSize="11"
+                                        Style="{StaticResource Pill}" Margin="0,0,4,0" Tag="sel" Click="OnGestureLeftTab"/>
+                                <Button x:Name="GestureRightBtn" Content="Right" Width="56" Height="28" FontSize="11"
+                                        Style="{StaticResource Pill}" Margin="0" Click="OnGestureRightTab"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="WHEN NOT ON A CALL" Foreground="#6A7080" FontSize="10" FontWeight="SemiBold" Margin="2,0,0,6"/>
+
+                        <!-- Single Tap -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Single-tap" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="SingleTapCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <!-- Double Tap -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Double-tap" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="DoubleTapCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <!-- Triple Tap -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Triple-tap" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="TripleTapCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <!-- Slide -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Slide" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="SlideCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <!-- Touch & Hold -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Touch &amp; hold" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="TouchHoldCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <TextBlock Text="WHEN ON A CALL" Foreground="#6A7080" FontSize="10" FontWeight="SemiBold" Margin="2,10,0,6"/>
+
+                        <!-- Double Tap Call -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Double-tap" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="CallDoubleTapCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
+
+                        <!-- Long Touch & Hold Call -->
+                        <Grid Margin="2,3,2,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Long touch &amp; hold" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="CallTouchHoldCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -353,10 +451,8 @@
                         <TextBlock Text="EQ — SOUND MASTER" Style="{StaticResource Header}"/>
                         <UniformGrid Columns="3">
                             <Button x:Name="EqBalancedBtn" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalanced"/>
-                            <Button x:Name="EqBoldBtn" Content="Bold" Style="{StaticResource Pill}" Click="OnEqBold"/>
-                            <Button x:Name="EqSerenadeBtn" Content="Serenade" Style="{StaticResource Pill}" Click="OnEqSerenade"/>
+                            <Button x:Name="EqVocalsBtn" Content="Clear Vocals" Style="{StaticResource Pill}" Click="OnEqVocals"/>
                             <Button x:Name="EqBassBtn" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBass"/>
-                            <Button x:Name="EqDynBtn" Content="DynAudio" Style="{StaticResource Pill}" Click="OnEqDyn"/>
                         </UniformGrid>
                     </StackPanel>
                 </Border>
@@ -396,7 +492,7 @@
                             <TextBlock Text="Slot" Foreground="#9AA0B0" FontSize="12"
                                        VerticalAlignment="Center" Margin="2,0,8,0"/>
                             <ComboBox x:Name="SlotCombo" Grid.Column="1" Width="110" Height="32"
-                                      VerticalContentAlignment="Center" SelectedIndex="0"/>
+                                       VerticalContentAlignment="Center" SelectedIndex="0"/>
                             <Button Grid.Column="2" Content="Select" Style="{StaticResource Pill}"
                                     Margin="8,0,4,0" Click="OnSelectEq"/>
                             <Button Grid.Column="3" Content="Delete" Width="80" Style="{StaticResource Pill}"
@@ -404,6 +500,7 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+
             </StackPanel>
             </ScrollViewer>
 
