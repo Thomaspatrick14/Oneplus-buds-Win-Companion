@@ -383,6 +383,70 @@
                     </StackPanel>
                 </Border>
 
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="EQ — SOUND MASTER" Style="{StaticResource Header}"/>
+                        <!-- Buds 4 EQ Presets -->
+                        <UniformGrid x:Name="EqPanelBuds4" Columns="3">
+                            <Button x:Name="EqBalancedBtn" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalanced"/>
+                            <Button x:Name="EqVocalsBtn" Content="Clear Vocals" Style="{StaticResource Pill}" Click="OnEqVocals"/>
+                            <Button x:Name="EqBassBtn" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBass"/>
+                        </UniformGrid>
+                        <!-- Buds Pro 3 EQ Presets (Nico's Original) -->
+                        <UniformGrid x:Name="EqPanelPro3" Columns="3" Visibility="Collapsed">
+                            <Button x:Name="EqBalancedBtnPro3" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalancedPro3"/>
+                            <Button x:Name="EqBoldBtnPro3" Content="Bold" Style="{StaticResource Pill}" Click="OnEqBoldPro3"/>
+                            <Button x:Name="EqSerenadeBtnPro3" Content="Serenade" Style="{StaticResource Pill}" Click="OnEqSerenadePro3"/>
+                            <Button x:Name="EqBassBtnPro3" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBassPro3"/>
+                            <Button x:Name="EqDynBtnPro3" Content="DynAudio" Style="{StaticResource Pill}" Click="OnEqDynPro3"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="BASSWAVE™" Style="{StaticResource Header}" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock x:Name="BassValue" Text="0" Foreground="#4C77F0" FontWeight="Bold"
+                                           FontSize="14" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <ToggleButton x:Name="BassToggle" Style="{StaticResource TogglePill}"
+                                              Click="OnBassToggle"/>
+                            </StackPanel>
+                        </Grid>
+                        <Slider x:Name="BassSlider" Minimum="-5" Maximum="5" Value="0" Visibility="Collapsed"
+                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                ValueChanged="OnBassChanged" Margin="2,10,2,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel x:Name="CustomEqPanel">
+                        <TextBlock Text="CUSTOM EQ" Style="{StaticResource Header}"/>
+                        <TextBox x:Name="EqNameBox" Text="My EQ" Height="30" Margin="2,0,2,8"
+                                 VerticalContentAlignment="Center"/>
+                        <StackPanel x:Name="BandRows"/>
+                        <Button x:Name="ApplyEqBtn" Content="Create / Apply Custom EQ" Style="{StaticResource Pill}"
+                                Margin="4,8,4,2" Click="OnApplyCustomEq"/>
+                        <Grid Margin="2,6,2,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Slot" Foreground="#9AA0B0" FontSize="12"
+                                       VerticalAlignment="Center" Margin="2,0,8,0"/>
+                            <ComboBox x:Name="SlotCombo" Grid.Column="1" Width="110" Height="32"
+                                       VerticalContentAlignment="Center" SelectedIndex="0"/>
+                            <Button Grid.Column="2" Content="Select" Style="{StaticResource Pill}"
+                                    Margin="8,0,4,0" Click="OnSelectEq"/>
+                            <Button Grid.Column="3" Content="Delete" Width="80" Style="{StaticResource Pill}"
+                                    Click="OnDeleteEq"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <Border x:Name="EarbudControlsCard" Style="{StaticResource Card}">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
@@ -468,70 +532,6 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Long touch &amp; hold" Foreground="#9AA0B0" FontSize="12" VerticalAlignment="Center"/>
                             <ComboBox x:Name="CallTouchHoldCombo" Grid.Column="1" Height="30" SelectionChanged="OnGestureComboChanged"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="EQ — SOUND MASTER" Style="{StaticResource Header}"/>
-                        <!-- Buds 4 EQ Presets -->
-                        <UniformGrid x:Name="EqPanelBuds4" Columns="3">
-                            <Button x:Name="EqBalancedBtn" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalanced"/>
-                            <Button x:Name="EqVocalsBtn" Content="Clear Vocals" Style="{StaticResource Pill}" Click="OnEqVocals"/>
-                            <Button x:Name="EqBassBtn" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBass"/>
-                        </UniformGrid>
-                        <!-- Buds Pro 3 EQ Presets (Nico's Original) -->
-                        <UniformGrid x:Name="EqPanelPro3" Columns="3" Visibility="Collapsed">
-                            <Button x:Name="EqBalancedBtnPro3" Content="Balanced" Style="{StaticResource Pill}" Click="OnEqBalancedPro3"/>
-                            <Button x:Name="EqBoldBtnPro3" Content="Bold" Style="{StaticResource Pill}" Click="OnEqBoldPro3"/>
-                            <Button x:Name="EqSerenadeBtnPro3" Content="Serenade" Style="{StaticResource Pill}" Click="OnEqSerenadePro3"/>
-                            <Button x:Name="EqBassBtnPro3" Content="Bass" Style="{StaticResource Pill}" Click="OnEqBassPro3"/>
-                            <Button x:Name="EqDynBtnPro3" Content="DynAudio" Style="{StaticResource Pill}" Click="OnEqDynPro3"/>
-                        </UniformGrid>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <Grid>
-                            <TextBlock Text="BASSWAVE™" Style="{StaticResource Header}" VerticalAlignment="Center"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock x:Name="BassValue" Text="0" Foreground="#4C77F0" FontWeight="Bold"
-                                           FontSize="14" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                <ToggleButton x:Name="BassToggle" Style="{StaticResource TogglePill}"
-                                              Click="OnBassToggle"/>
-                            </StackPanel>
-                        </Grid>
-                        <Slider x:Name="BassSlider" Minimum="-5" Maximum="5" Value="0" Visibility="Collapsed"
-                                IsSnapToTickEnabled="True" TickFrequency="1"
-                                ValueChanged="OnBassChanged" Margin="2,10,2,0"/>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                    <StackPanel x:Name="CustomEqPanel">
-                        <TextBlock Text="CUSTOM EQ" Style="{StaticResource Header}"/>
-                        <TextBox x:Name="EqNameBox" Text="My EQ" Height="30" Margin="2,0,2,8"
-                                 VerticalContentAlignment="Center"/>
-                        <StackPanel x:Name="BandRows"/>
-                        <Button x:Name="ApplyEqBtn" Content="Create / Apply Custom EQ" Style="{StaticResource Pill}"
-                                Margin="4,8,4,2" Click="OnApplyCustomEq"/>
-                        <Grid Margin="2,6,2,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Slot" Foreground="#9AA0B0" FontSize="12"
-                                       VerticalAlignment="Center" Margin="2,0,8,0"/>
-                            <ComboBox x:Name="SlotCombo" Grid.Column="1" Width="110" Height="32"
-                                       VerticalContentAlignment="Center" SelectedIndex="0"/>
-                            <Button Grid.Column="2" Content="Select" Style="{StaticResource Pill}"
-                                    Margin="8,0,4,0" Click="OnSelectEq"/>
-                            <Button Grid.Column="3" Content="Delete" Width="80" Style="{StaticResource Pill}"
-                                    Click="OnDeleteEq"/>
                         </Grid>
                     </StackPanel>
                 </Border>

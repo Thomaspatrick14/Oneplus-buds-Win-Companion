@@ -338,17 +338,23 @@ public partial class MainWindow : Window
     }
 
     // ANC/EQ/BassWave changes are pushed by the earbuds instantly (see
-    // OnPacketReceived). Battery level isn't pushed, so we poll just that.
+    // OnPacketReceived). Battery level isn't pushed, so we poll that and
+    // keep ANC state continuously synchronized as a reliable heartbeat.
     private void StartBatteryTimer()
     {
         _pollTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(5)
+            Interval = TimeSpan.FromSeconds(4)
         };
         _pollTimer.Tick += (_, _) =>
         {
             if (!_ready || _buds == null) return;
-            try { _buds.RequestBattery(); } catch { }
+            try
+            {
+                _buds.RequestBattery();
+                _buds.RequestAncNow();
+            }
+            catch { }
         };
         _pollTimer.Start();
     }
@@ -398,11 +404,25 @@ public partial class MainWindow : Window
         var wear = BudsConnection.DecodeWear(d);
         if (wear.HasValue) ApplyWear(wear.Value);
 
-        // Change notifications (from the phone or a touch gesture) carry high
-        // byte 0x05 in a compact, per-feature format. Rather than decode each
-        // variant, treat any of them as "something changed" and re-pull the
-        // full state, which comes back in the 0x81 form we already handle.
-        if (d.Length >= 6 && d[5] == 0x05) RequestFullStateThrottled();
+        // Change notifications from the phone (cmd 0x05) or hardware gesture
+        // events from the earbuds (cmd 04 02 with setting 0xF1) signal that
+        // a setting or gesture (such as pinch to toggle ANC mode) occurred.
+        // Re-query state immediately and shortly after to capture DSP mode changes.
+        bool isGestureEvent = d.Length >= 10 && d[4] == 0x04 && d[5] == 0x02 && d[9] == 0xF1;
+        bool isChangeNotification = d.Length >= 6 && d[5] == 0x05;
+        if (isGestureEvent || isChangeNotification)
+        {
+            RequestFullStateThrottled();
+            // Earbuds need ~200-350ms to finish their DSP tone/transition after a pinch;
+            // query ANC again shortly after so the new mode is reliably captured.
+            _ = Task.Delay(350).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+            {
+                if (_ready && _buds != null)
+                {
+                    try { _buds.RequestAncNow(); } catch { }
+                }
+            }));
+        }
     }
 
     private DateTime _lastStateRequest;

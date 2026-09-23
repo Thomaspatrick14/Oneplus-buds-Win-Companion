@@ -279,7 +279,12 @@ public class BudsConnection : IDisposable
         }
         if (cmdHi == 0x02 && cmdLo == 0x04)
         {
-            if (d.Length >= 14 && d[10] == 0x01)
+            if (d.Length >= 10 && d[9] == 0xF1)
+            {
+                string side = (d.Length > 10 && d[10] == 1) ? "Left" : (d.Length > 10 && d[10] == 2 ? "Right" : "");
+                return $"Gesture Event ({side}): {FormatHex(d[9..])}";
+            }
+            if (d.Length >= 14 && (d[7] | (d[8] << 8)) == 5 && d[9] == 0x03 && d[10] == 0x01)
             {
                 int v = d[12] | (d[13] << 8);
                 string desc = v switch
@@ -295,7 +300,7 @@ public class BudsConnection : IDisposable
                 };
                 return $"Live ANC Mode: {desc}";
             }
-            if (d.Length >= 14 && d[10] == 0x04)
+            if (d.Length >= 14 && (d[7] | (d[8] << 8)) == 5 && d[9] == 0x03 && d[10] == 0x04)
             {
                 int v = d[12] | (d[13] << 8);
                 string desc = v switch
@@ -306,10 +311,6 @@ public class BudsConnection : IDisposable
                     _ => $"0x{v:X4}"
                 };
                 return $"Live Auto Level: {desc}";
-            }
-            if (d.Length >= 10 && d[9] == 0xF1)
-            {
-                return $"Setting 0xF1: {FormatHex(d[9..])}";
             }
             return "Live Status Notification (0x0402)";
         }
