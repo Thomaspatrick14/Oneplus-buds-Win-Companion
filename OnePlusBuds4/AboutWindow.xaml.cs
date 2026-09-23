@@ -6,7 +6,11 @@ namespace OnePlusBuds4;
 
 public partial class AboutWindow : Window
 {
-    public AboutWindow() => InitializeComponent();
+    public AboutWindow()
+    {
+        InitializeComponent();
+        SourceInitialized += (_, _) => MainWindow.EnableDarkMode(this);
+    }
 
     private void OnDrag(object sender, System.Windows.Input.MouseButtonEventArgs e) => DragMove();
     private void OnClose(object sender, RoutedEventArgs e) => Close();

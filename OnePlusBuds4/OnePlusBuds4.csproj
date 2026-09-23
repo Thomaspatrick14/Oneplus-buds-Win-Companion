@@ -10,9 +10,9 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <AssemblyName>OnePlusBuds4</AssemblyName>
     <RootNamespace>OnePlusBuds4</RootNamespace>
-    <Title>OnePlus Buds 4 Windows Companion</Title>
-    <Product>OnePlus Buds 4 Windows Companion</Product>
-    <Description>Windows companion controller for OnePlus Buds 4</Description>
+    <Title>OnePlus Buds Windows Companion</Title>
+    <Product>OnePlus Buds Windows Companion</Product>
+    <Description>Windows companion controller for OnePlus Buds (Buds 4 &amp; Buds Pro 3)</Description>
     <Version>1.0.0</Version>
     <Authors>Thomaspatrick14, nic0manz</Authors>
     <RepositoryUrl>https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion</RepositoryUrl>

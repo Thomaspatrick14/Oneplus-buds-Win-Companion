@@ -65,6 +65,24 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _pollTimer;
     private readonly PacketLogWindow _logWindow = new();
 
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    internal static void EnableDarkMode(Window window)
+    {
+        try
+        {
+            var helper = new System.Windows.Interop.WindowInteropHelper(window);
+            if (helper.Handle != IntPtr.Zero)
+            {
+                int dark = 1;
+                DwmSetWindowAttribute(helper.Handle, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref dark, sizeof(int));
+                DwmSetWindowAttribute(helper.Handle, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE older */, ref dark, sizeof(int));
+            }
+        }
+        catch { }
+    }
+
     private record DeviceItem(string Name, string Mac)
     {
         public override string ToString() => Name;
@@ -74,6 +92,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SetupTray();
+        SourceInitialized += (_, _) => EnableDarkMode(this);
         Loaded += async (_, _) => { LoadDevices(); BuildBands(); PopulateSlotCombo(); InitGestureCombos(); SetControlsEnabled(false); await AutoConnectAsync(); };
         StateChanged += OnStateChanged;
         Closed += (_, _) =>
@@ -144,8 +163,8 @@ public partial class MainWindow : Window
     {
         _isPro3Mode = isPro3;
 
-        if (TitleText != null) TitleText.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
-        Title = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
+        if (TitleText != null) TitleText.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds";
+        Title = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds";
 
         if (NoisePanelBuds4 != null) NoisePanelBuds4.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
         if (NoisePanelPro3 != null) NoisePanelPro3.Visibility = isPro3 ? Visibility.Visible : Visibility.Collapsed;
@@ -155,7 +174,7 @@ public partial class MainWindow : Window
         if (EqPanelBuds4 != null) EqPanelBuds4.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
         if (EqPanelPro3 != null) EqPanelPro3.Visibility = isPro3 ? Visibility.Visible : Visibility.Collapsed;
 
-        if (_tray != null) _tray.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds 4";
+        if (_tray != null) _tray.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds";
 
         UpdateAncEnabled();
     }
@@ -834,7 +853,7 @@ public partial class MainWindow : Window
         _tray = new WinForms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds 4",
+            Text = _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds",
             Visible = false
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
@@ -849,7 +868,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds 4", "Running in the tray", WinForms.ToolTipIcon.None); }
+            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds", "Running in the tray", WinForms.ToolTipIcon.None); }
         }
     }
 

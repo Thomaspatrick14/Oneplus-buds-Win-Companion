@@ -1,0 +1,13 @@
+{
+    "dotnet.dotnetPath": "C:\\Users\\up650\\.dotnet",
+    "dotnetAcquisitionExtension.existingDotnetPath": [
+        {
+            "extensionId": "ms-dotnettools.csharp",
+            "path": "C:\\Users\\up650\\.dotnet\\dotnet.exe"
+        },
+        {
+            "extensionId": "ms-dotnettools.csdevkit",
+            "path": "C:\\Users\\up650\\.dotnet\\dotnet.exe"
+        }
+    ]
+}

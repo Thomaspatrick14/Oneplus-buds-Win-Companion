@@ -17,6 +17,7 @@ public partial class PacketLogWindow : Window
     public PacketLogWindow()
     {
         InitializeComponent();
+        SourceInitialized += (_, _) => MainWindow.EnableDarkMode(this);
         _logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "packet_log.txt");
     }
 

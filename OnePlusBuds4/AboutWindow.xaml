@@ -40,7 +40,7 @@
             <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Margin="24,0,24,16">
                 <Image Source="app.ico" Width="40" Height="40" Margin="0,0,0,10"/>
-                <TextBlock Text="OnePlus Buds 4 Controller" Foreground="#E6E8EE"
+                <TextBlock Text="OnePlus Buds Controller" Foreground="#E6E8EE"
                            FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                 <TextBlock Text="Forked from nic0manz" Foreground="#8A90A0"
                            FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,2"/>

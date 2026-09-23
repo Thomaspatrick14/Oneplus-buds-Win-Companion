@@ -1,12 +1,18 @@
 <Window x:Class="OnePlusBuds4.PacketLogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OnePlus Buds 4 — Live Packet Monitor" Width="720" Height="480"
+        Title="OnePlus Buds — Live Packet Monitor" Width="720" Height="480"
         MinWidth="500" MinHeight="320"
         Background="#15171C" WindowStyle="None"
-        ResizeMode="CanResizeWithGrip" WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI" Icon="app.ico">
-
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
     <Window.Resources>
         <Style x:Key="LogBtn" TargetType="Button">
             <Setter Property="Foreground" Value="#E6E8EE"/>
@@ -56,7 +62,7 @@
                     <TextBlock Text="📟" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Live Bluetooth RFCOMM Packet Monitor" Foreground="#E6E8EE" FontSize="12"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="— OnePlus Buds 4" Foreground="#8A90A0" FontSize="12"
+                    <TextBlock Text="— OnePlus Buds" Foreground="#8A90A0" FontSize="12"
                                Margin="6,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
                 <Button Grid.Column="1" Content="✕" Width="42" Height="36"

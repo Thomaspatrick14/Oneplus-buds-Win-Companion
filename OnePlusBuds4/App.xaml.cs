@@ -15,7 +15,7 @@ public partial class App : System.Windows.Application
         _mutex = new Mutex(true, "OnePlusBuds4_SingleInstance", out bool isNew);
         if (!isNew)
         {
-            System.Windows.MessageBox.Show("OnePlus Buds 4 is already running (check the system tray).",
+            System.Windows.MessageBox.Show("OnePlus Buds is already running (check the system tray).",
                 "Already running", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
