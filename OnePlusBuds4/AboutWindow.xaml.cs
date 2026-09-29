@@ -10,6 +10,14 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
         SourceInitialized += (_, _) => MainWindow.EnableDarkMode(this);
+        StartupCheck.IsChecked = MainWindow.IsRunOnStartupEnabled();
+    }
+
+    private void OnStartupCheckClick(object sender, RoutedEventArgs e)
+    {
+        bool enable = StartupCheck.IsChecked == true;
+        MainWindow.SetRunOnStartup(enable);
+        (Owner as MainWindow)?.UpdateStartupCheckState();
     }
 
     private void OnDrag(object sender, System.Windows.Input.MouseButtonEventArgs e) => DragMove();

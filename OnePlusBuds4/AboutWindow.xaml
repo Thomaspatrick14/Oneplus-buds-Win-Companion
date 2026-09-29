@@ -1,7 +1,7 @@
 <Window x:Class="OnePlusBuds4.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="About" Width="380" Height="255"
+        Title="About" Width="380" Height="295"
         Background="#15171C" WindowStyle="None"
         ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI" Icon="app.ico">
@@ -47,11 +47,18 @@
                 <TextBlock Text="Rewritten by Thomaspatrick14" Foreground="#8A90A0"
                            FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,2"/>
                 <TextBlock Text="(with AI assistance)" Foreground="#6A7080"
-                           FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                           FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+                <Border Background="#262A34" CornerRadius="8" Padding="12,7" Margin="0,0,0,12" HorizontalAlignment="Center">
+                    <CheckBox x:Name="StartupCheck" Content="Start minimized with Windows"
+                              Foreground="#E6E8EE" FontSize="12" Cursor="Hand"
+                              Click="OnStartupCheckClick" ToolTip="Launch automatically into system tray when you log in to Windows"/>
+                </Border>
+
                 <TextBlock HorizontalAlignment="Center">
                     <Hyperlink x:Name="RepoLink" RequestNavigate="OnNavigate"
-                               NavigateUri="https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion">
-                        <TextBlock Text="github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion"
+                               NavigateUri="https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion">
+                        <TextBlock Text="github.com/Thomaspatrick14/Oneplus-buds-Win-Companion"
                                    Foreground="#4C77F0" FontSize="11"/>
                     </Hyperlink>
                 </TextBlock>

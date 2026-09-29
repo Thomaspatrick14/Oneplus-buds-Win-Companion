@@ -1116,18 +1116,10 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    private void UpdateStartupCheckState()
+    internal void UpdateStartupCheckState()
     {
         bool enabled = IsRunOnStartupEnabled();
-        if (StartupCheck != null) StartupCheck.IsChecked = enabled;
         if (_trayStartupItem != null) _trayStartupItem.Checked = enabled;
-    }
-
-    private void OnStartupCheckClick(object sender, RoutedEventArgs e)
-    {
-        bool enable = StartupCheck.IsChecked == true;
-        SetRunOnStartup(enable);
-        UpdateStartupCheckState();
     }
 
     private static bool _aumidRegistered;
@@ -1185,24 +1177,18 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         });
     }
 
+    private DateTime _lastNotificationTime = DateTime.MinValue;
+    private string _lastNotificationContent = "";
+
     private void ShowNotification(string title, string message, WinForms.ToolTipIcon icon)
     {
-        // 1. Native Windows 10/11 Toast Notification banner
-        ShowToastNotification(title, message);
+        var now = DateTime.UtcNow;
+        string key = $"{title}::{message}";
+        if (key == _lastNotificationContent && (now - _lastNotificationTime).TotalSeconds < 3) return;
+        _lastNotificationTime = now;
+        _lastNotificationContent = key;
 
-        // 2. Legacy NotifyIcon balloon tip (fallback for older systems)
-        if (_tray != null)
-        {
-            try
-            {
-                if (!_tray.Visible) _tray.Visible = true;
-                _tray.BalloonTipTitle = title;
-                _tray.BalloonTipText = message;
-                _tray.BalloonTipIcon = icon;
-                _tray.ShowBalloonTip(4000);
-            }
-            catch { }
-        }
+        ShowToastNotification(title, message);
     }
 
     private void UpdateTrayTooltip(string text)
