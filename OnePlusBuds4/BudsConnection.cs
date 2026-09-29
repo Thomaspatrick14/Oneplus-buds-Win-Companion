@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -636,4 +637,41 @@ public class BudsConnection : IDisposable
     }
 
     public void Dispose() => Close();
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct BLUETOOTH_DEVICE_INFO
+    {
+        public int dwSize;
+        public ulong Address;
+        public uint ulClassofDevice;
+        [MarshalAs(UnmanagedType.Bool)] public bool fConnected;
+        [MarshalAs(UnmanagedType.Bool)] public bool fRemembered;
+        [MarshalAs(UnmanagedType.Bool)] public bool fAuthenticated;
+        public ushort stLastSeen_wYear, stLastSeen_wMonth, stLastSeen_wDayOfWeek, stLastSeen_wDay, stLastSeen_wHour, stLastSeen_wMinute, stLastSeen_wSecond, stLastSeen_wMilliseconds;
+        public ushort stLastUsed_wYear, stLastUsed_wMonth, stLastUsed_wDayOfWeek, stLastUsed_wDay, stLastUsed_wHour, stLastUsed_wMinute, stLastUsed_wSecond, stLastUsed_wMilliseconds;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 248)]
+        public string szName;
+    }
+
+    [DllImport("bthprops.cpl", SetLastError = true)]
+    private static extern uint BluetoothGetDeviceInfo(IntPtr hRadio, ref BLUETOOTH_DEVICE_INFO pbdi);
+
+    /// <summary>
+    /// Checks whether Windows reports this Bluetooth device as currently connected (e.g. A2DP/HFP profile).
+    /// </summary>
+    public static bool IsDeviceConnected(string mac)
+    {
+        try
+        {
+            var bdi = new BLUETOOTH_DEVICE_INFO();
+            bdi.dwSize = Marshal.SizeOf<BLUETOOTH_DEVICE_INFO>();
+            bdi.Address = BtEndPoint.ParseMac(mac);
+            uint ret = BluetoothGetDeviceInfo(IntPtr.Zero, ref bdi);
+            return ret == 0 && bdi.fConnected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

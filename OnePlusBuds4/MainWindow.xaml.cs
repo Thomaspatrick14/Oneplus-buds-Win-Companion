@@ -25,10 +25,16 @@ public partial class MainWindow : Window
     private void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnClose(object sender, RoutedEventArgs e)
     {
+        _wasConnected = false;
+        _reconnectTimer?.Stop();
         _pollTimer?.Stop();
         _buds?.Close();
-        _tray?.Dispose();
-        _tray = null;
+        if (_tray != null)
+        {
+            _tray.Visible = false;
+            _tray.Dispose();
+            _tray = null;
+        }
         _logWindow.AllowClose = true;
         _logWindow.Close();
         Environment.Exit(0);
@@ -61,8 +67,12 @@ public partial class MainWindow : Window
     private bool _suppressBassEvents; // true while a poll is syncing the BassWave UI, to avoid echoing commands back
     private bool? _bothInCase;        // both earbuds in the case? null = unknown yet (locks ANC when true)
     private bool? _anyInEar;          // at least one earbud in an ear? drives the "Worn" label
+    private bool _wasConnected;
+    private bool _notifyOnNextBattery;
+    private string? _lastBatterySummary;
     private WinForms.NotifyIcon? _tray;
     private System.Windows.Threading.DispatcherTimer? _pollTimer;
+    private System.Windows.Threading.DispatcherTimer? _reconnectTimer;
     private readonly PacketLogWindow _logWindow = new();
 
     [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
@@ -97,10 +107,16 @@ public partial class MainWindow : Window
         StateChanged += OnStateChanged;
         Closed += (_, _) =>
         {
+            _wasConnected = false;
+            _reconnectTimer?.Stop();
             _pollTimer?.Stop();
             _buds?.Close();
-            _tray?.Dispose();
-            _tray = null;
+            if (_tray != null)
+            {
+                _tray.Visible = false;
+                _tray.Dispose();
+                _tray = null;
+            }
             _logWindow.AllowClose = true;
             _logWindow.Close();
             Environment.Exit(0);
@@ -174,7 +190,7 @@ public partial class MainWindow : Window
         if (EqPanelBuds4 != null) EqPanelBuds4.Visibility = isPro3 ? Visibility.Collapsed : Visibility.Visible;
         if (EqPanelPro3 != null) EqPanelPro3.Visibility = isPro3 ? Visibility.Visible : Visibility.Collapsed;
 
-        if (_tray != null) _tray.Text = isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds";
+        UpdateTrayTooltip(isPro3 ? "OnePlus Buds Pro 3" : "OnePlus Buds");
 
         UpdateAncEnabled();
     }
@@ -221,6 +237,7 @@ public partial class MainWindow : Window
         _bothInCase = null; _anyInEar = null; // unknown until the earbuds report it
         SetControlsEnabled(false);
         ConnectBtn.IsEnabled = false;
+        _reconnectTimer?.Stop();
         _pollTimer?.Stop();
         _buds?.Close();
         _buds = new BudsConnection(mac);
@@ -242,11 +259,28 @@ public partial class MainWindow : Window
             }
             await connectTask;
             _ready = true;
+            _wasConnected = true;
+            _notifyOnNextBattery = true;
+            _reconnectTimer?.Stop();
             SetControlsEnabled(true);
             UpdateWornText();              // reflect any wear state captured during the init broadcast
             SetStatus("Connected to " + mac);
             _buds.RequestFullState();      // ANC, EQ, BassWave, wear, custom EQ list, gestures, battery
             StartBatteryTimer();           // battery isn't pushed, so we poll it gently
+
+            // Fallback notification in case battery packet is delayed
+            _ = Task.Delay(2500).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+            {
+                if (_notifyOnNextBattery && _ready)
+                {
+                    _notifyOnNextBattery = false;
+                    string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
+                    string msg = !string.IsNullOrWhiteSpace(_lastBatterySummary)
+                        ? _lastBatterySummary.Replace("   ", "  •  ")
+                        : "Connected successfully";
+                    ShowNotification(title, msg, WinForms.ToolTipIcon.Info);
+                }
+            }));
         }
         catch (SocketException ex)
         {
@@ -435,7 +469,27 @@ public partial class MainWindow : Window
         try { _buds.RequestFullState(); } catch { }
     }
 
-    private void OnDisconnected() => Dispatcher.BeginInvoke(async () => await TryReconnectAsync());
+    private void OnDisconnected()
+    {
+        Dispatcher.BeginInvoke(async () =>
+        {
+            if (_wasConnected)
+            {
+                _wasConnected = false;
+                _notifyOnNextBattery = false;
+                string title = _isPro3Mode ? "OnePlus Buds Pro 3 Disconnected" : "OnePlus Buds Disconnected";
+                string msg = !string.IsNullOrWhiteSpace(_lastBatterySummary)
+                    ? $"Last battery: {_lastBatterySummary.Replace("   ", "  •  ")}"
+                    : "Bluetooth connection lost.";
+                ShowNotification(title, msg, WinForms.ToolTipIcon.Warning);
+                UpdateTrayTooltip(title);
+            }
+            _ready = false;
+            SetControlsEnabled(false);
+            BatteryText.Text = "Battery   —";
+            await TryReconnectAsync();
+        });
+    }
 
     // ── Command helper ──
     // We send, show a pending "…", and confirm with ✓ only when the earbuds ack
@@ -584,6 +638,8 @@ public partial class MainWindow : Window
     {
         var b = BudsConnection.DecodeBattery(d);
         if (b == null) return;
+        _lastBatterySummary = b;
+
         // Build the line manually so the charging bolt (⚡) can be coloured green.
         BatteryText.Inlines.Clear();
         BatteryText.Inlines.Add(new System.Windows.Documents.Run("Battery   "));
@@ -593,6 +649,16 @@ public partial class MainWindow : Window
             BatteryText.Inlines.Add(new System.Windows.Documents.Run(pieces[i]));
             if (i < pieces.Length - 1)
                 BatteryText.Inlines.Add(new System.Windows.Documents.Run("⚡") { Foreground = ChargeGreen });
+        }
+
+        string formatted = b.Replace("   ", "  •  ");
+        UpdateTrayTooltip(formatted);
+
+        if (_notifyOnNextBattery)
+        {
+            _notifyOnNextBattery = false;
+            string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
+            ShowNotification(title, formatted, WinForms.ToolTipIcon.Info);
         }
     }
 
@@ -622,7 +688,6 @@ public partial class MainWindow : Window
     private async Task TryReconnectAsync()
     {
         if (_buds == null) return;
-        BatteryText.Text = "Battery   —";
         var mac = _buds.Mac;
         _ready = false;
         SetStatus($"Reconnecting to {mac}…");
@@ -630,10 +695,43 @@ public partial class MainWindow : Window
         {
             await Task.Run(() => _buds.Connect());
             _ready = true;
+            _wasConnected = true;
+            _notifyOnNextBattery = true;
+            _reconnectTimer?.Stop();
+            SetControlsEnabled(true);
+            UpdateWornText();
             SetStatus("Connected to " + mac);
             _buds.RequestFullState();
+            StartBatteryTimer();
         }
-        catch { SetStatus("Earbuds unavailable — press Connect to retry."); }
+        catch
+        {
+            SetStatus("Earbuds unavailable — press Connect to retry.");
+            StartReconnectWatcher();
+        }
+    }
+
+    private void StartReconnectWatcher()
+    {
+        if (_reconnectTimer == null)
+        {
+            _reconnectTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(4)
+            };
+            _reconnectTimer.Tick += async (_, _) =>
+            {
+                if (_ready || _connecting) return;
+                var mac = SelectedMac();
+                if (mac == null) return;
+                if (BudsConnection.IsDeviceConnected(mac))
+                {
+                    _reconnectTimer.Stop();
+                    await ConnectAsync(mac);
+                }
+            };
+        }
+        _reconnectTimer.Start();
     }
 
     private void SetStatus(string s) => StatusText.Text = s;
@@ -874,12 +972,27 @@ public partial class MainWindow : Window
         {
             Icon = LoadTrayIcon(),
             Text = _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds",
-            Visible = false
+            Visible = true
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Show", null, (_, _) => ShowFromTray());
-        menu.Items.Add("Exit", null, (_, _) => { _tray!.Visible = false; _tray?.Dispose(); Environment.Exit(0); });
+        menu.Items.Add("Exit", null, (_, _) =>
+        {
+            _wasConnected = false;
+            _reconnectTimer?.Stop();
+            _pollTimer?.Stop();
+            _buds?.Close();
+            if (_tray != null)
+            {
+                _tray.Visible = false;
+                _tray.Dispose();
+                _tray = null;
+            }
+            _logWindow.AllowClose = true;
+            _logWindow.Close();
+            Environment.Exit(0);
+        });
         _tray.ContextMenuStrip = menu;
     }
 
@@ -888,7 +1001,6 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            if (_tray != null) { _tray.Visible = true; _tray.ShowBalloonTip(1000, _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds", "Running in the tray", WinForms.ToolTipIcon.None); }
         }
     }
 
@@ -897,7 +1009,28 @@ public partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
-        if (_tray != null) _tray.Visible = false;
+    }
+
+    private void ShowNotification(string title, string message, WinForms.ToolTipIcon icon)
+    {
+        if (_tray == null) return;
+        try
+        {
+            if (!_tray.Visible) _tray.Visible = true;
+            _tray.ShowBalloonTip(4000, title, message, icon);
+        }
+        catch { }
+    }
+
+    private void UpdateTrayTooltip(string text)
+    {
+        if (_tray == null) return;
+        try
+        {
+            if (text.Length > 63) text = text.Substring(0, 60) + "...";
+            _tray.Text = text;
+        }
+        catch { }
     }
 
     // ── Earbud Controls (Gestures) ──
