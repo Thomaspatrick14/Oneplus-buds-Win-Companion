@@ -5,7 +5,13 @@ A native, lightweight Windows desktop companion application to control and monit
 > [!NOTE]
 > **Special Thanks & Origin**: This application is built upon the pioneering reverse-engineering foundation created by **[Nico (@nic0manz)](https://github.com/nic0manz/oneplus_buds3_pro_dotnet)** for the OnePlus Buds Pro 3.
 
-Maintained and rewritten by [Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion) with AI assistance.
+Maintained and rewritten by [Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion) with AI assistance.
+
+<p align="left">
+  <a href="https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion/releases/latest">
+    <img src="https://img.shields.io/badge/Download_Latest_Release-v1.1.0-blue?style=for-the-badge&logo=windows" alt="Download v1.1.0" />
+  </a>
+</p>
 
 ---
 
@@ -75,8 +81,13 @@ This application automatically adapts its interface and feature set based on the
   - Fully compatible with Dual Connection mode (connects to PC and smartphone simultaneously).
 - **Live Bluetooth Packet Monitor**:
   - Built-in live RFCOMM packet sniffer (`Log` button in the title bar) to inspect raw hex frames, filter traffic, and test custom commands.
-- **Auto-Connect & System Tray**:
+- **Connection & Disconnection Notifications**:
+  - Instant System Tray balloon notifications showing full battery status (Left, Right, Case) whenever your earbuds connect or disconnect from Windows.
+- **Auto-Connect, System Tray & Startup**:
   - Automatically connects on startup and reconnects if Bluetooth drops. Minimizes cleanly to the notification tray.
+  - Option to launch minimized on Windows startup conveniently located inside the **About** (`?`) dialog.
+- **Single Instance & Clean Termination**:
+  - Global mutex prevents multiple running instances; cleanly terminates all threads on exit without leaving lingering background processes.
 
 ---
 
@@ -164,10 +175,23 @@ OnePlusBuds/
 
 ---
 
+## What's New in v1.1.0
+
+- **Connection & Disconnection Notifications**:
+  - System Tray balloon notifications showing live battery levels for Left, Right, and Case whenever earphones connect or disconnect.
+- **Relocated Startup Settings**:
+  - Moved the "Start minimized with Windows" checkbox into the **About** (`?`) window to keep the main device card clean.
+- **Clean Background Process Handling**:
+  - Single-instance mutex and deterministic cleanup ensure zero leftover zombie processes on close/exit.
+- **Single Balloon Debounce**:
+  - Debounced notification dispatch to prevent duplicate popups upon telemetry reception.
+
+---
+
 ## Credits & Acknowledgments
 
 - **Original Project**: Forked from [nic0manz/oneplus_buds3_pro_dotnet](https://github.com/nic0manz/oneplus_buds3_pro_dotnet) created by **Nico**.
-- **Rewritten for OnePlus Buds 4 & Unified Profiles**: Maintained and rewritten by **[Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion)**.
+- **Rewritten for OnePlus Buds 4 & Unified Profiles**: Maintained and rewritten by **[Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion)**.
 - **AI Assistance**: Reverse engineering, protocol discovery, dual-model architecture, gesture implementation, and modern UI enhancements were developed with **AI assistance**.
 
 ---

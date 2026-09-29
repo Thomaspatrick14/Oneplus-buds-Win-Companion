@@ -1188,7 +1188,21 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         _lastNotificationTime = now;
         _lastNotificationContent = key;
 
-        ShowToastNotification(title, message);
+        if (_tray != null)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    if (!_tray.Visible) _tray.Visible = true;
+                    _tray.BalloonTipTitle = title;
+                    _tray.BalloonTipText = message;
+                    _tray.BalloonTipIcon = icon;
+                    _tray.ShowBalloonTip(4000);
+                }
+                catch { }
+            });
+        }
     }
 
     private void UpdateTrayTooltip(string text)
