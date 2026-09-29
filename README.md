@@ -2,7 +2,10 @@
 
 A native, lightweight Windows desktop companion application to control and monitor **OnePlus Buds 4** and **OnePlus Buds Pro 3** earphones over Bluetooth Classic RFCOMM from a PC, without requiring an Android phone or the HeyMelody app.
 
-Forked from [nic0manz/oneplus_buds3_pro_dotnet](https://github.com/nic0manz/oneplus_buds3_pro_dotnet) and maintained by [Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion) with AI assistance.
+> [!NOTE]
+> **Special Thanks & Origin**: This application is built upon the pioneering reverse-engineering foundation created by **[Nico (@nic0manz)](https://github.com/nic0manz/oneplus_buds3_pro_dotnet)** for the OnePlus Buds Pro 3.
+
+Maintained and rewritten by [Thomaspatrick14](https://github.com/Thomaspatrick14/Oneplus-buds4-Win-Companion) with AI assistance.
 
 ---
 
