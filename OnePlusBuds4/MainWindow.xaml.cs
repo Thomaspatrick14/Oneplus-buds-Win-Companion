@@ -98,12 +98,27 @@ public partial class MainWindow : Window
         public override string ToString() => Name;
     }
 
-    public MainWindow()
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern uint RegisterWindowMessage(string lpString);
+
+    private uint _showWindowMsg;
+
+    public MainWindow() : this(false) { }
+
+    public MainWindow(bool startMinimized)
     {
         InitializeComponent();
         SetupTray();
-        SourceInitialized += (_, _) => EnableDarkMode(this);
-        Loaded += async (_, _) => { LoadDevices(); BuildBands(); PopulateSlotCombo(); InitGestureCombos(); SetControlsEnabled(false); await AutoConnectAsync(); };
+
+        var helper = new System.Windows.Interop.WindowInteropHelper(this);
+        helper.EnsureHandle();
+
+        EnableDarkMode(this);
+
+        var source = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
+        _showWindowMsg = RegisterWindowMessage(App.ShowWindowMessageName);
+        source?.AddHook(WndProc);
+
         StateChanged += OnStateChanged;
         Closed += (_, _) =>
         {
@@ -121,6 +136,35 @@ public partial class MainWindow : Window
             _logWindow.Close();
             Environment.Exit(0);
         };
+
+        if (startMinimized)
+        {
+            WindowState = WindowState.Minimized;
+            Hide();
+        }
+
+        _ = InitAppAsync();
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (_showWindowMsg != 0 && (uint)msg == _showWindowMsg)
+        {
+            ShowFromTray();
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    private async Task InitAppAsync()
+    {
+        LoadDevices();
+        BuildBands();
+        PopulateSlotCombo();
+        InitGestureCombos();
+        SetControlsEnabled(false);
+        UpdateStartupCheckState();
+        await AutoConnectAsync();
     }
 
     // ── Device list ──
@@ -966,6 +1010,8 @@ public partial class MainWindow : Window
     }
 
     // ── System tray ──
+    private WinForms.ToolStripMenuItem? _trayStartupItem;
+
     private void SetupTray()
     {
         _tray = new WinForms.NotifyIcon
@@ -977,6 +1023,21 @@ public partial class MainWindow : Window
         _tray.DoubleClick += (_, _) => ShowFromTray();
         var menu = new WinForms.ContextMenuStrip();
         menu.Items.Add("Show", null, (_, _) => ShowFromTray());
+
+        _trayStartupItem = new WinForms.ToolStripMenuItem("Start with Windows")
+        {
+            CheckOnClick = true,
+            Checked = IsRunOnStartupEnabled()
+        };
+        _trayStartupItem.Click += (_, _) =>
+        {
+            SetRunOnStartup(_trayStartupItem.Checked);
+            UpdateStartupCheckState();
+        };
+        menu.Items.Add(_trayStartupItem);
+
+        menu.Items.Add(new WinForms.ToolStripSeparator());
+
         menu.Items.Add("Exit", null, (_, _) =>
         {
             _wasConnected = false;
@@ -1009,6 +1070,64 @@ public partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
+        Focus();
+    }
+
+    // ── Startup with Windows ──
+    private const string StartupRegKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupValueName = "OnePlusBuds";
+
+    public static bool IsRunOnStartupEnabled()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegKey, false);
+            return key?.GetValue(StartupValueName) != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static void SetRunOnStartup(bool enable)
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegKey, true);
+            if (key == null) return;
+            if (enable)
+            {
+                string exePath = Environment.ProcessPath ?? "";
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    try { exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? ""; } catch { }
+                }
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    key.SetValue(StartupValueName, $"\"{exePath}\" --minimized");
+                }
+            }
+            else
+            {
+                key.DeleteValue(StartupValueName, false);
+            }
+        }
+        catch { }
+    }
+
+    private void UpdateStartupCheckState()
+    {
+        bool enabled = IsRunOnStartupEnabled();
+        if (StartupCheck != null) StartupCheck.IsChecked = enabled;
+        if (_trayStartupItem != null) _trayStartupItem.Checked = enabled;
+    }
+
+    private void OnStartupCheckClick(object sender, RoutedEventArgs e)
+    {
+        bool enable = StartupCheck.IsChecked == true;
+        SetRunOnStartup(enable);
+        UpdateStartupCheckState();
     }
 
     private void ShowNotification(string title, string message, WinForms.ToolTipIcon icon)

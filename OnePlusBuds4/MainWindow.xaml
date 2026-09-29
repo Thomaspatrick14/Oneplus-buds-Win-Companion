@@ -332,7 +332,12 @@
                         <Button x:Name="ConnectBtn" Grid.Column="2" Content="Connect" Width="84" Height="34"
                                 Margin="6,0,0,0" Style="{StaticResource Pill}" Click="OnConnectClick"/>
                     </Grid>
-                    <TextBlock x:Name="BatteryText" Text="Battery: —" Foreground="#9AA0B0" FontSize="13" Margin="2,10,0,0"/>
+                    <Grid Margin="2,10,0,0">
+                        <TextBlock x:Name="BatteryText" Text="Battery: —" Foreground="#9AA0B0" FontSize="13" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="StartupCheck" Content="Start with Windows" HorizontalAlignment="Right"
+                                  Foreground="#8A90A0" FontSize="11" VerticalAlignment="Center" Cursor="Hand"
+                                  Click="OnStartupCheckClick" ToolTip="Launch minimized to system tray when Windows starts"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
