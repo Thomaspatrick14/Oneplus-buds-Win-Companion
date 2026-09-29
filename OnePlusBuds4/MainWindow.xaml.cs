@@ -1130,15 +1130,79 @@ public partial class MainWindow : Window
         UpdateStartupCheckState();
     }
 
-    private void ShowNotification(string title, string message, WinForms.ToolTipIcon icon)
+    private static bool _aumidRegistered;
+    private static void RegisterAumid()
     {
-        if (_tray == null) return;
+        if (_aumidRegistered) return;
+        _aumidRegistered = true;
         try
         {
-            if (!_tray.Visible) _tray.Visible = true;
-            _tray.ShowBalloonTip(4000, title, message, icon);
+            using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Classes\AppUserModelId\OnePlusBuds");
+            key?.SetValue("DisplayName", "OnePlus Buds");
+            key?.SetValue("ShowInSettings", 1, Microsoft.Win32.RegistryValueKind.DWord);
+
+            using var notifKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\OnePlusBuds");
+            notifKey?.SetValue("Enabled", 1, Microsoft.Win32.RegistryValueKind.DWord);
+            notifKey?.SetValue("ShowInActionCenter", 1, Microsoft.Win32.RegistryValueKind.DWord);
         }
         catch { }
+    }
+
+    private static void ShowToastNotification(string title, string message)
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                RegisterAumid();
+
+                string t = title.Replace("'", "''");
+                string m = message.Replace("'", "''");
+
+                string script = @"
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$nodes = $xml.GetElementsByTagName('text')
+$nodes.Item(0).AppendChild($xml.CreateTextNode('" + t + @"')) | Out-Null
+$nodes.Item(1).AppendChild($xml.CreateTextNode('" + m + @"')) | Out-Null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OnePlusBuds').Show($toast)
+";
+                byte[] bytes = System.Text.Encoding.Unicode.GetBytes(script);
+                string encoded = Convert.ToBase64String(bytes);
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encoded,
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using var p = System.Diagnostics.Process.Start(psi);
+                p?.WaitForExit(4000);
+            }
+            catch { }
+        });
+    }
+
+    private void ShowNotification(string title, string message, WinForms.ToolTipIcon icon)
+    {
+        // 1. Native Windows 10/11 Toast Notification banner
+        ShowToastNotification(title, message);
+
+        // 2. Legacy NotifyIcon balloon tip (fallback for older systems)
+        if (_tray != null)
+        {
+            try
+            {
+                if (!_tray.Visible) _tray.Visible = true;
+                _tray.BalloonTipTitle = title;
+                _tray.BalloonTipText = message;
+                _tray.BalloonTipIcon = icon;
+                _tray.ShowBalloonTip(4000);
+            }
+            catch { }
+        }
     }
 
     private void UpdateTrayTooltip(string text)
