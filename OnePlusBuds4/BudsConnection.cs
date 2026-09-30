@@ -656,22 +656,118 @@ public class BudsConnection : IDisposable
     [DllImport("bthprops.cpl", SetLastError = true)]
     private static extern uint BluetoothGetDeviceInfo(IntPtr hRadio, ref BLUETOOTH_DEVICE_INFO pbdi);
 
-    /// <summary>
-    /// Checks whether Windows reports this Bluetooth device as currently connected (e.g. A2DP/HFP profile).
-    /// </summary>
-    public static bool IsDeviceConnected(string mac)
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BLUETOOTH_FIND_RADIO_PARAMS
     {
+        public uint dwSize;
+    }
+
+    [DllImport("bthprops.cpl", SetLastError = true)]
+    private static extern IntPtr BluetoothFindFirstRadio(ref BLUETOOTH_FIND_RADIO_PARAMS pbtfrp, out IntPtr phRadio);
+
+    [DllImport("bthprops.cpl", SetLastError = true)]
+    private static extern bool BluetoothFindNextRadio(IntPtr hFind, out IntPtr phRadio);
+
+    [DllImport("bthprops.cpl", SetLastError = true)]
+    private static extern bool BluetoothFindRadioClose(IntPtr hFind);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("winmm.dll", CharSet = CharSet.Auto)]
+    private static extern int waveOutGetNumDevs();
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct WAVEOUTCAPS
+    {
+        public ushort wMid;
+        public ushort wPid;
+        public uint vDriverVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szPname;
+        public uint dwFormats;
+        public ushort wChannels;
+        public ushort wReserved1;
+        public uint dwSupport;
+    }
+
+    [DllImport("winmm.dll", CharSet = CharSet.Auto)]
+    private static extern int waveOutGetDevCaps(IntPtr uDeviceID, out WAVEOUTCAPS pwoc, uint cbuoc);
+
+    /// <summary>
+    /// Checks whether Windows reports this Bluetooth device as currently connected (e.g. A2DP/HFP profile or active audio endpoint).
+    /// </summary>
+    public static bool IsDeviceConnected(string mac, string? deviceName = null)
+    {
+        ulong addr = 0;
+        try { addr = BtEndPoint.ParseMac(mac); } catch { }
+
+        // 1. Primary radio search via BluetoothGetDeviceInfo
+        if (addr != 0)
+        {
+            try
+            {
+                var bdi = new BLUETOOTH_DEVICE_INFO();
+                bdi.dwSize = Marshal.SizeOf<BLUETOOTH_DEVICE_INFO>();
+                bdi.Address = addr;
+                if (BluetoothGetDeviceInfo(IntPtr.Zero, ref bdi) == 0 && bdi.fConnected)
+                    return true;
+            }
+            catch { }
+
+            // 2. Iterate each physical Bluetooth radio adapter handle
+            try
+            {
+                var p = new BLUETOOTH_FIND_RADIO_PARAMS { dwSize = (uint)Marshal.SizeOf<BLUETOOTH_FIND_RADIO_PARAMS>() };
+                IntPtr hFind = BluetoothFindFirstRadio(ref p, out IntPtr hRadio);
+                if (hFind != IntPtr.Zero)
+                {
+                    try
+                    {
+                        do
+                        {
+                            var bdi = new BLUETOOTH_DEVICE_INFO();
+                            bdi.dwSize = Marshal.SizeOf<BLUETOOTH_DEVICE_INFO>();
+                            bdi.Address = addr;
+                            if (BluetoothGetDeviceInfo(hRadio, ref bdi) == 0 && bdi.fConnected)
+                            {
+                                CloseHandle(hRadio);
+                                return true;
+                            }
+                            CloseHandle(hRadio);
+                        } while (BluetoothFindNextRadio(hFind, out hRadio));
+                    }
+                    finally
+                    {
+                        BluetoothFindRadioClose(hFind);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // 3. Fallback: check Windows multimedia audio endpoints for OnePlus / Buds
         try
         {
-            var bdi = new BLUETOOTH_DEVICE_INFO();
-            bdi.dwSize = Marshal.SizeOf<BLUETOOTH_DEVICE_INFO>();
-            bdi.Address = BtEndPoint.ParseMac(mac);
-            uint ret = BluetoothGetDeviceInfo(IntPtr.Zero, ref bdi);
-            return ret == 0 && bdi.fConnected;
+            int numDevs = waveOutGetNumDevs();
+            for (int i = 0; i < numDevs; i++)
+            {
+                if (waveOutGetDevCaps((IntPtr)i, out WAVEOUTCAPS caps, (uint)Marshal.SizeOf<WAVEOUTCAPS>()) == 0)
+                {
+                    if (!string.IsNullOrEmpty(caps.szPname))
+                    {
+                        if (caps.szPname.Contains("OnePlus", StringComparison.OrdinalIgnoreCase) ||
+                            caps.szPname.Contains("Buds", StringComparison.OrdinalIgnoreCase) ||
+                            (!string.IsNullOrEmpty(deviceName) && caps.szPname.Contains(deviceName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
         }
-        catch
-        {
-            return false;
-        }
+        catch { }
+
+        return false;
     }
 }

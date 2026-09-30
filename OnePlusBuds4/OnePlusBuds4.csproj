@@ -14,10 +14,10 @@
     <Title>OnePlus Buds</Title>
     <Product>OnePlus Buds</Product>
     <Description>Windows companion controller for OnePlus Buds (Buds 4 &amp; Buds Pro 3)</Description>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
-    <Authors>Thomaspatrick14, nic0manz</Authors>
+    <Version>1.1.1</Version>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
+    <Authors>Thomaspatrick14</Authors>
     <RepositoryUrl>https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion</RepositoryUrl>
   </PropertyGroup>
 

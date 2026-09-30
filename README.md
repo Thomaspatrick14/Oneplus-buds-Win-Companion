@@ -9,7 +9,7 @@ Maintained and rewritten by [Thomaspatrick14](https://github.com/Thomaspatrick14
 
 <p align="left">
   <a href="https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion/releases/latest">
-    <img src="https://img.shields.io/badge/Download_Latest_Release-v1.1.0-blue?style=for-the-badge&logo=windows" alt="Download v1.1.0" />
+    <img src="https://img.shields.io/badge/Download_Latest_Release-v1.1.1-blue?style=for-the-badge&logo=windows" alt="Download v1.1.1" />
   </a>
 </p>
 
@@ -172,6 +172,19 @@ OnePlusBuds/
 │   ├── app.ico              # Application icon
 │   └── OnePlusBuds4.csproj  # Build definition, single-file publish & metadata
 ```
+
+---
+
+## What's New in v1.1.1
+
+- **Boot Auto-Connect & Continuous Background Watcher**:
+  - Resolved an issue where starting minimized on Windows boot with offline earbuds left the app dormant. The reconnect watcher now runs continuously in the background upon login.
+- **Instant Hardware PnP Arrival Hook (`WM_DEVICECHANGE`)**:
+  - Listens for Windows PnP device notifications (`DBT_DEVNODES_CHANGED` / `DBT_DEVICEARRIVAL`) to connect the millisecond Windows detects earbud connection.
+- **Multi-Tier Bluetooth Connection Detection**:
+  - Iterates all physical Bluetooth radio handles (`BluetoothFindFirstRadio`) with a fallback to Windows Multimedia Audio Endpoints (`winmm.dll`).
+- **Explorer Shell Taskbar Re-anchoring (`TaskbarCreated`)**:
+  - Ensures the tray icon and its balloon notifications remain anchored if Windows Explorer finishes loading after startup.
 
 ---
 

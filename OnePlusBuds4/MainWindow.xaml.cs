@@ -103,6 +103,11 @@ public partial class MainWindow : Window
 
     private uint _showWindowMsg;
 
+    private const int WM_DEVICECHANGE = 0x0219;
+    private const int DBT_DEVNODES_CHANGED = 0x0007;
+    private const int DBT_DEVICEARRIVAL = 0x8000;
+    private uint _taskbarCreatedMsg;
+
     public MainWindow() : this(false) { }
 
     public MainWindow(bool startMinimized)
@@ -117,6 +122,7 @@ public partial class MainWindow : Window
 
         var source = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
         _showWindowMsg = RegisterWindowMessage(App.ShowWindowMessageName);
+        _taskbarCreatedMsg = RegisterWindowMessage("TaskbarCreated");
         source?.AddHook(WndProc);
 
         StateChanged += OnStateChanged;
@@ -152,6 +158,30 @@ public partial class MainWindow : Window
         {
             ShowFromTray();
             handled = true;
+        }
+        else if (_taskbarCreatedMsg != 0 && (uint)msg == _taskbarCreatedMsg)
+        {
+            if (_tray != null) _tray.Visible = true;
+        }
+        else if (msg == WM_DEVICECHANGE)
+        {
+            int wp = wParam.ToInt32();
+            if (wp == DBT_DEVNODES_CHANGED || wp == DBT_DEVICEARRIVAL)
+            {
+                if (!_ready && !_connecting)
+                {
+                    var mac = SelectedMac();
+                    if (mac != null)
+                    {
+                        string? devName = (DeviceCombo.SelectedItem as DeviceItem)?.Name;
+                        if (BudsConnection.IsDeviceConnected(mac, devName))
+                        {
+                            _reconnectTimer?.Stop();
+                            _ = ConnectAsync(mac);
+                        }
+                    }
+                }
+            }
         }
         return IntPtr.Zero;
     }
@@ -253,9 +283,21 @@ public partial class MainWindow : Window
 
     private async Task AutoConnectAsync()
     {
-        // Auto-connect to the first device in the list (already filtered for OnePlus Buds)
+        // Auto-connect to the preferred device if already connected to Windows,
+        // otherwise start the watcher to catch the moment the user connects them.
         var mac = SelectedMac();
-        if (mac != null) await ConnectAsync(mac);
+        if (mac == null) return;
+
+        string? devName = (DeviceCombo.SelectedItem as DeviceItem)?.Name;
+        if (BudsConnection.IsDeviceConnected(mac, devName))
+        {
+            await ConnectAsync(mac);
+        }
+        else
+        {
+            SetStatus("Waiting for earbuds to connect to Windows…");
+            StartReconnectWatcher();
+        }
     }
 
     private async Task ConnectAsync(string? mac)
@@ -294,11 +336,12 @@ public partial class MainWindow : Window
         try
         {
             var connectTask = Task.Run(() => _buds.Connect());
-            var timeout = Task.Delay(TimeSpan.FromSeconds(10));
+            var timeout = Task.Delay(TimeSpan.FromSeconds(6));
             if (await Task.WhenAny(connectTask, timeout) == timeout)
             {
                 _buds.Close();
-                SetStatus("Connection timed out — try disconnecting and reconnecting the earbuds in Windows Bluetooth settings.");
+                SetStatus("Waiting for earbuds to connect…");
+                StartReconnectWatcher();
                 return;
             }
             await connectTask;
@@ -328,11 +371,13 @@ public partial class MainWindow : Window
         }
         catch (SocketException ex)
         {
-            SetStatus($"Connection failed ({ex.SocketErrorCode}). Make sure Bluetooth is on and the earbuds are paired.");
+            SetStatus($"Waiting for earbuds to connect… ({ex.SocketErrorCode})");
+            StartReconnectWatcher();
         }
         catch (Exception)
         {
-            SetStatus("Connection failed. Check the MAC and that the earbuds are paired.");
+            SetStatus("Waiting for earbuds to connect…");
+            StartReconnectWatcher();
         }
         finally
         {
@@ -761,14 +806,15 @@ public partial class MainWindow : Window
         {
             _reconnectTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(4)
+                Interval = TimeSpan.FromSeconds(2)
             };
             _reconnectTimer.Tick += async (_, _) =>
             {
                 if (_ready || _connecting) return;
                 var mac = SelectedMac();
                 if (mac == null) return;
-                if (BudsConnection.IsDeviceConnected(mac))
+                string? devName = (DeviceCombo.SelectedItem as DeviceItem)?.Name;
+                if (BudsConnection.IsDeviceConnected(mac, devName))
                 {
                     _reconnectTimer.Stop();
                     await ConnectAsync(mac);
