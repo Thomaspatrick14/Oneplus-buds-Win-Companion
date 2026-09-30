@@ -68,7 +68,7 @@ public partial class MainWindow : Window
     private bool? _bothInCase;        // both earbuds in the case? null = unknown yet (locks ANC when true)
     private bool? _anyInEar;          // at least one earbud in an ear? drives the "Worn" label
     private bool _wasConnected;
-    private bool _notifyOnNextBattery;
+    private bool _batteryNotificationShown;
     private string? _lastBatterySummary;
     private WinForms.NotifyIcon? _tray;
     private System.Windows.Threading.DispatcherTimer? _pollTimer;
@@ -347,20 +347,21 @@ public partial class MainWindow : Window
             await connectTask;
             _ready = true;
             _wasConnected = true;
-            _notifyOnNextBattery = true;
+            _batteryNotificationShown = false;
             _reconnectTimer?.Stop();
             SetControlsEnabled(true);
             UpdateWornText();              // reflect any wear state captured during the init broadcast
             SetStatus("Connected to " + mac);
-            _buds.RequestFullState();      // ANC, EQ, BassWave, wear, custom EQ list, gestures, battery
+            _buds.RequestBattery();        // Immediate priority query!
+            _buds.RequestFullState();      // ANC, EQ, BassWave, wear, custom EQ list, gestures
             StartBatteryTimer();           // battery isn't pushed, so we poll it gently
 
             // Fallback notification in case battery packet is delayed
-            _ = Task.Delay(2500).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+            _ = Task.Delay(5000).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
             {
-                if (_notifyOnNextBattery && _ready)
+                if (!_batteryNotificationShown && _ready)
                 {
-                    _notifyOnNextBattery = false;
+                    _batteryNotificationShown = true;
                     string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
                     string msg = !string.IsNullOrWhiteSpace(_lastBatterySummary)
                         ? _lastBatterySummary.Replace("   ", "  •  ")
@@ -565,7 +566,7 @@ public partial class MainWindow : Window
             if (_wasConnected)
             {
                 _wasConnected = false;
-                _notifyOnNextBattery = false;
+                _batteryNotificationShown = false;
                 string title = _isPro3Mode ? "OnePlus Buds Pro 3 Disconnected" : "OnePlus Buds Disconnected";
                 string msg = !string.IsNullOrWhiteSpace(_lastBatterySummary)
                     ? $"Last battery: {_lastBatterySummary.Replace("   ", "  •  ")}"
@@ -743,9 +744,9 @@ public partial class MainWindow : Window
         string formatted = b.Replace("   ", "  •  ");
         UpdateTrayTooltip(formatted);
 
-        if (_notifyOnNextBattery)
+        if (!_batteryNotificationShown)
         {
-            _notifyOnNextBattery = false;
+            _batteryNotificationShown = true;
             string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
             ShowNotification(title, formatted, WinForms.ToolTipIcon.Info);
         }
@@ -785,13 +786,28 @@ public partial class MainWindow : Window
             await Task.Run(() => _buds.Connect());
             _ready = true;
             _wasConnected = true;
-            _notifyOnNextBattery = true;
+            _batteryNotificationShown = false;
             _reconnectTimer?.Stop();
             SetControlsEnabled(true);
             UpdateWornText();
             SetStatus("Connected to " + mac);
+            _buds.RequestBattery();
             _buds.RequestFullState();
             StartBatteryTimer();
+
+            // Fallback notification in case battery packet is delayed
+            _ = Task.Delay(5000).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+            {
+                if (!_batteryNotificationShown && _ready)
+                {
+                    _batteryNotificationShown = true;
+                    string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
+                    string msg = !string.IsNullOrWhiteSpace(_lastBatterySummary)
+                        ? _lastBatterySummary.Replace("   ", "  •  ")
+                        : "Connected successfully";
+                    ShowNotification(title, msg, WinForms.ToolTipIcon.Info);
+                }
+            }));
         }
         catch
         {

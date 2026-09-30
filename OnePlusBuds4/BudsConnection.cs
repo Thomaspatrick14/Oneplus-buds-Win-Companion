@@ -217,9 +217,9 @@ public class BudsConnection : IDisposable
     public void RequestBassWaveValue()=> Send(GET_BW_VALUE);
     public void RequestBassWaveOn()   => Send(GET_BW_SWITCH);
 
-    // Asks the earbuds for every readable setting at once.
     public void RequestFullState()
     {
+        RequestBattery(); // Prioritize battery telemetry first
         RequestAncNow();
         RequestEqState();
         RequestBassWaveValue();
@@ -227,7 +227,6 @@ public class BudsConnection : IDisposable
         RequestWear();
         RequestCustomEqList();
         RequestGestures();
-        RequestBattery();
     }
 
     private void WriteRaw(byte[] data)

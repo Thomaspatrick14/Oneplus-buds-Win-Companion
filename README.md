@@ -177,6 +177,8 @@ OnePlusBuds/
 
 ## What's New in v1.1.1
 
+- **Priority Battery Telemetry & Startup Popup**:
+  - Prioritizes battery queries at the top of initial state negotiation so that the system tray balloon notification reliably displays live battery levels (`Left`, `Right`, `Case`) on Windows reboot.
 - **Boot Auto-Connect & Continuous Background Watcher**:
   - Resolved an issue where starting minimized on Windows boot with offline earbuds left the app dormant. The reconnect watcher now runs continuously in the background upon login.
 - **Instant Hardware PnP Arrival Hook (`WM_DEVICECHANGE`)**:
