@@ -9,7 +9,7 @@ Maintained and rewritten by [Thomaspatrick14](https://github.com/Thomaspatrick14
 
 <p align="left">
   <a href="https://github.com/Thomaspatrick14/Oneplus-buds-Win-Companion/releases/latest">
-    <img src="https://img.shields.io/badge/Download_Latest_Release-v1.1.1-blue?style=for-the-badge&logo=windows" alt="Download v1.1.1" />
+    <img src="https://img.shields.io/badge/Download_Latest_Release-v1.1.2-blue?style=for-the-badge&logo=windows" alt="Download v1.1.2" />
   </a>
 </p>
 
@@ -172,6 +172,17 @@ OnePlusBuds/
 │   ├── app.ico              # Application icon
 │   └── OnePlusBuds4.csproj  # Build definition, single-file publish & metadata
 ```
+
+---
+
+## What's New in v1.1.2
+
+- **Eliminated Antivirus Heuristic Triggers**:
+  - Completely removed unused legacy PowerShell toast notification code that was triggering Microsoft Defender `Trojan:Win32/Yomal` heuristic false positives.
+- **Clean .NET IPC Architecture**:
+  - Replaced Win32 window message desktop broadcasts (`HWND_BROADCAST`) with a standard, high-performance .NET managed `EventWaitHandle` for single-instance app restoration.
+- **Removed Extraneous Registry Footprint**:
+  - Excised custom `AppUserModelId` registry operations; only standard user-controlled startup registry keys are maintained.
 
 ---
 
