@@ -101,8 +101,6 @@ public partial class MainWindow : Window
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
     private static extern uint RegisterWindowMessage(string lpString);
 
-    private uint _showWindowMsg;
-
     private const int WM_DEVICECHANGE = 0x0219;
     private const int DBT_DEVNODES_CHANGED = 0x0007;
     private const int DBT_DEVICEARRIVAL = 0x8000;
@@ -121,7 +119,6 @@ public partial class MainWindow : Window
         EnableDarkMode(this);
 
         var source = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
-        _showWindowMsg = RegisterWindowMessage(App.ShowWindowMessageName);
         _taskbarCreatedMsg = RegisterWindowMessage("TaskbarCreated");
         source?.AddHook(WndProc);
 
@@ -154,12 +151,7 @@ public partial class MainWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (_showWindowMsg != 0 && (uint)msg == _showWindowMsg)
-        {
-            ShowFromTray();
-            handled = true;
-        }
-        else if (_taskbarCreatedMsg != 0 && (uint)msg == _taskbarCreatedMsg)
+        if (_taskbarCreatedMsg != 0 && (uint)msg == _taskbarCreatedMsg)
         {
             if (_tray != null) _tray.Visible = true;
         }
@@ -1127,7 +1119,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowFromTray()
+    internal void ShowFromTray()
     {
         Show();
         WindowState = WindowState.Normal;
@@ -1182,61 +1174,6 @@ public partial class MainWindow : Window
     {
         bool enabled = IsRunOnStartupEnabled();
         if (_trayStartupItem != null) _trayStartupItem.Checked = enabled;
-    }
-
-    private static bool _aumidRegistered;
-    private static void RegisterAumid()
-    {
-        if (_aumidRegistered) return;
-        _aumidRegistered = true;
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Classes\AppUserModelId\OnePlusBuds");
-            key?.SetValue("DisplayName", "OnePlus Buds");
-            key?.SetValue("ShowInSettings", 1, Microsoft.Win32.RegistryValueKind.DWord);
-
-            using var notifKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\OnePlusBuds");
-            notifKey?.SetValue("Enabled", 1, Microsoft.Win32.RegistryValueKind.DWord);
-            notifKey?.SetValue("ShowInActionCenter", 1, Microsoft.Win32.RegistryValueKind.DWord);
-        }
-        catch { }
-    }
-
-    private static void ShowToastNotification(string title, string message)
-    {
-        Task.Run(() =>
-        {
-            try
-            {
-                RegisterAumid();
-
-                string t = title.Replace("'", "''");
-                string m = message.Replace("'", "''");
-
-                string script = @"
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-$nodes = $xml.GetElementsByTagName('text')
-$nodes.Item(0).AppendChild($xml.CreateTextNode('" + t + @"')) | Out-Null
-$nodes.Item(1).AppendChild($xml.CreateTextNode('" + m + @"')) | Out-Null
-$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OnePlusBuds').Show($toast)
-";
-                byte[] bytes = System.Text.Encoding.Unicode.GetBytes(script);
-                string encoded = Convert.ToBase64String(bytes);
-
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encoded,
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-                using var p = System.Diagnostics.Process.Start(psi);
-                p?.WaitForExit(4000);
-            }
-            catch { }
-        });
     }
 
     private DateTime _lastNotificationTime = DateTime.MinValue;

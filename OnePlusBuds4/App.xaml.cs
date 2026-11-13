@@ -1,6 +1,6 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace OnePlusBuds4;
@@ -11,27 +11,46 @@ namespace OnePlusBuds4;
 public partial class App : System.Windows.Application
 {
     private static Mutex? _mutex;
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-    private static extern uint RegisterWindowMessage(string lpString);
-
-    [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-    private const int HWND_BROADCAST = 0xFFFF;
-    internal const string ShowWindowMessageName = "ONEPLUS_BUDS_SHOW_WINDOW";
+    private static EventWaitHandle? _showEvent;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, "OnePlusBuds_SingleInstance", out bool isNew);
         if (!isNew)
         {
-            // Signal the already running instance to show its window
-            uint msg = RegisterWindowMessage(ShowWindowMessageName);
-            PostMessage((IntPtr)HWND_BROADCAST, msg, IntPtr.Zero, IntPtr.Zero);
+            // Signal the already running instance to show its window via standard EventWaitHandle
+            try
+            {
+                if (EventWaitHandle.TryOpenExisting("OnePlusBuds_ShowInstanceEvent", out var existing))
+                {
+                    existing.Set();
+                    existing.Dispose();
+                }
+            }
+            catch { }
             Shutdown();
             return;
         }
+
+        try
+        {
+            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "OnePlusBuds_ShowInstanceEvent");
+            Task.Run(() =>
+            {
+                while (_showEvent.WaitOne())
+                {
+                    Current?.Dispatcher.InvokeAsync(() =>
+                    {
+                        if (Current.MainWindow is MainWindow mw)
+                        {
+                            mw.ShowFromTray();
+                        }
+                    });
+                }
+            });
+        }
+        catch { }
+
         base.OnStartup(e);
 
         bool startMinimized = false;
@@ -58,7 +77,7 @@ public partial class App : System.Windows.Application
     {
         try { _mutex?.ReleaseMutex(); } catch { }
         _mutex?.Dispose();
+        _showEvent?.Dispose();
         base.OnExit(e);
     }
 }
-
