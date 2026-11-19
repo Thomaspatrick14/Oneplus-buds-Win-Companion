@@ -40,6 +40,18 @@ internal sealed class BtEndPoint : EndPoint
 public class BudsConnection : IDisposable
 {
     public const int CHANNEL = 15;
+
+    /// <summary>Earbuds that speak the same HeyMelody protocol family (OnePlus Buds / Nord Buds, OPPO Enco).
+    /// Verified on OnePlus Buds 4 and Buds Pro 3 only.</summary>
+    public static bool IsSupportedName(string name)
+    {
+        var n = (name ?? "").ToLowerInvariant();
+        if (n.Contains("oneplus") && n.Contains("buds")) return true;
+        if (n.Contains("nord buds")) return true;
+        if (n.Contains("oppo") && n.Contains("enco")) return true;
+        if (n.StartsWith("enco ")) return true;
+        return false;
+    }
     private readonly string _mac;
     private Socket? _sock;
     private readonly object _lock = new();
