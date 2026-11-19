@@ -180,6 +180,7 @@ public partial class MainWindow : Window
 
     private async Task InitAppAsync()
     {
+        Loc.Apply(this);
         LoadDevices();
         BuildBands();
         PopulateSlotCombo();
@@ -198,7 +199,7 @@ public partial class MainWindow : Window
         foreach (var (name, mac) in devices)
         {
             var n = name.ToLowerInvariant();
-            if (!(n.Contains("oneplus") && n.Contains("buds")))
+            if (!BudsConnection.IsSupportedName(name))
                 continue;
             var item = new DeviceItem(name, mac);
             DeviceCombo.Items.Add(item);
@@ -237,7 +238,7 @@ public partial class MainWindow : Window
 
     private void UpdateProfileForDevice(string? name)
     {
-        bool isPro3 = !string.IsNullOrEmpty(name) && name.Contains("3 Pro", StringComparison.OrdinalIgnoreCase);
+        bool isPro3 = !string.IsNullOrEmpty(name) && (name.Contains("3 Pro", StringComparison.OrdinalIgnoreCase) || name.Contains("Pro 3", StringComparison.OrdinalIgnoreCase));
         ApplyDeviceProfile(isPro3);
     }
 
@@ -450,7 +451,7 @@ public partial class MainWindow : Window
     private void UpdateWornText()
     {
         if (!_ready) { WornText.Text = ""; return; }
-        WornText.Text = _anyInEar switch { true => "Worn", false => "Not worn", null => "" };
+        WornText.Text = _anyInEar switch { true => Loc.T("Worn"), false => Loc.T("Not worn"), null => "" };
     }
 
     // ANC/EQ/BassWave changes are pushed by the earbuds instantly (see
@@ -593,9 +594,24 @@ public partial class MainWindow : Window
     // ── Apply a pushed state packet to the UI ────────────────────────
     private bool _ancAuto; // true while ANC is in Auto mode (level is adaptive)
 
+    private string? _lastAncKey;
     private void ApplyAncState(bool off, bool trans, bool anc, bool auto, bool adaptive, string level)
     {
         _ancAuto = auto;
+        string ancKey = off ? "off" : trans ? "trans" : (adaptive && !_isPro3Mode) ? "adaptive" : anc ? "anc:" + level : "?";
+        if (_lastAncKey != null && ancKey != _lastAncKey && ancKey != "?" && _ready)
+        {
+            var (ico, ttl) = ancKey switch
+            {
+                "off" => ("🔇", Loc.T("Noise control off")),
+                "trans" => ("👂", Loc.T("Transparency mode")),
+                "adaptive" => ("✨", Loc.T("Adaptive mode")),
+                _ => ("🎧", Loc.T("Noise cancellation"))
+            };
+            string? sub = ancKey.StartsWith("anc:") ? Loc.T(level) : null;
+            ToastWindow.Show(ico, ttl, sub, null, 2.2);
+        }
+        if (ancKey != "?") _lastAncKey = ancKey;
         if (off)
         {
             Select(NoiseGroup, ActiveOffBtn);
@@ -722,16 +738,7 @@ public partial class MainWindow : Window
         if (b == null) return;
         _lastBatterySummary = b;
 
-        // Build the line manually so the charging bolt (⚡) can be coloured green.
-        BatteryText.Inlines.Clear();
-        BatteryText.Inlines.Add(new System.Windows.Documents.Run("Battery   "));
-        var pieces = b.Split('⚡');
-        for (int i = 0; i < pieces.Length; i++)
-        {
-            BatteryText.Inlines.Add(new System.Windows.Documents.Run(pieces[i]));
-            if (i < pieces.Length - 1)
-                BatteryText.Inlines.Add(new System.Windows.Documents.Run("⚡") { Foreground = ChargeGreen });
-        }
+        RenderBattery(b);
 
         string formatted = b.Replace("   ", "  •  ");
         UpdateTrayTooltip(formatted);
@@ -739,10 +746,31 @@ public partial class MainWindow : Window
         if (!_batteryNotificationShown)
         {
             _batteryNotificationShown = true;
-            string title = _isPro3Mode ? "OnePlus Buds Pro 3 Connected" : "OnePlus Buds Connected";
-            ShowNotification(title, formatted, WinForms.ToolTipIcon.Info);
+            string model = _isPro3Mode ? "OnePlus Buds Pro 3" : "OnePlus Buds";
+            var nums = System.Text.RegularExpressions.Regex.Matches(b, @"(\d+)%");
+            double? minPct = null;
+            foreach (System.Text.RegularExpressions.Match m in nums) { var v = double.Parse(m.Groups[1].Value); if (minPct == null || v < minPct) minPct = v; }
+            ToastWindow.Show("🎧", model + " — " + Loc.T("Connected"), LocBattery(formatted), minPct, 5);
         }
     }
+
+    private void RenderBattery(string b)
+    {
+        // Build the line manually so the charging bolt (⚡) can be coloured green.
+        BatteryText.Inlines.Clear();
+        BatteryText.Inlines.Add(new System.Windows.Documents.Run(Loc.T("Battery") + "   "));
+        var pieces = b.Split('⚡');
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            BatteryText.Inlines.Add(new System.Windows.Documents.Run(LocBattery(pieces[i])));
+            if (i < pieces.Length - 1)
+                BatteryText.Inlines.Add(new System.Windows.Documents.Run("⚡") { Foreground = ChargeGreen });
+        }
+
+    }
+
+    private static string LocBattery(string s) => !Loc.Ru ? s :
+        s.Replace("Left", "Л").Replace("Right", "П").Replace("Case", "Кейс");
 
     private void ApplyCustomEqList(byte[] d)
     {
@@ -832,7 +860,7 @@ public partial class MainWindow : Window
         _reconnectTimer.Start();
     }
 
-    private void SetStatus(string s) => StatusText.Text = s;
+    private void SetStatus(string s) => StatusText.Text = Loc.Status(s);
 
     // ── Selection highlight ──
     private System.Windows.Controls.Button[] NoiseGroup => _isPro3Mode
@@ -1076,9 +1104,21 @@ public partial class MainWindow : Window
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("Show", null, (_, _) => ShowFromTray());
+        menu.Items.Add(Loc.T("Show"), null, (_, _) => ShowFromTray());
+        var langItem = new WinForms.ToolStripMenuItem(Loc.T("Language") + ": " + (Loc.Ru ? "Русский → English" : "English → Русский"));
+        langItem.Click += (_, _) =>
+        {
+            Loc.Set(!Loc.Ru);
+            Loc.Apply(this);
+            langItem.Text = Loc.T("Language") + ": " + (Loc.Ru ? "Русский → English" : "English → Русский");
+            _trayStartupItem!.Text = Loc.T("Start with Windows");
+            if (StatusText != null) StatusText.Text = Loc.Status(StatusText.Text);
+            UpdateWornText();
+            if (_lastBatterySummary != null) RenderBattery(_lastBatterySummary);
+        };
+        menu.Items.Add(langItem);
 
-        _trayStartupItem = new WinForms.ToolStripMenuItem("Start with Windows")
+        _trayStartupItem = new WinForms.ToolStripMenuItem(Loc.T("Start with Windows"))
         {
             CheckOnClick = true,
             Checked = IsRunOnStartupEnabled()
@@ -1092,7 +1132,7 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new WinForms.ToolStripSeparator());
 
-        menu.Items.Add("Exit", null, (_, _) =>
+        menu.Items.Add(Loc.T("Exit"), null, (_, _) =>
         {
             _wasConnected = false;
             _reconnectTimer?.Stop();
